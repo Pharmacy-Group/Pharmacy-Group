@@ -159,6 +159,7 @@ body {
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
+   line-clamp: 1;   
   width:220px;
   line-height: 1.5;
   max-height: 3em;
@@ -175,6 +176,7 @@ body {
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 1;
+   line-clamp: 1;   
   -webkit-box-orient: vertical;
   width:100%;
   line-height: 1.5;

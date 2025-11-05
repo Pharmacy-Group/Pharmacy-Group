@@ -28,7 +28,7 @@ const useAddressData = () => {
   useEffect(() => {
     const fetchProvinces = async () => {
       try {
-        const res = await fetch("https://pharmacy-backend.onrender.com/api/provinces");
+        const res = await fetch("http://localhost:5000/api/provinces");
         const data = await res.json();
  
         if (Array.isArray(data)) {

@@ -3,7 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const fetch = require("node-fetch");
-const https = require("https"); // ⬅️ thêm dòng này
+const https = require("https");
 const productRouter = require("./routes/productRouter");
 const CartRouter = require("./routes/cartRouter");
 const userRouter = require("./routes/userRouter");
@@ -27,12 +27,12 @@ app.use("/api/products", productRouter);
 app.use("/api/carts", CartRouter);
 app.use("/api/users", userRouter);
 
-// ⚙️ Bỏ qua SSL (chỉ dùng dev)
+
 const agent = new https.Agent({
   rejectUnauthorized: false,
 });
 
-// API tỉnh/thành
+
 app.get("/api/provinces", async (req, res) => {
   try {
     const response = await fetch("https://provinces.open-api.vn/api/?depth=3", { agent });
@@ -43,6 +43,7 @@ app.get("/api/provinces", async (req, res) => {
     res.status(500).json({ error: "Không thể tải dữ liệu địa chỉ" });
   }
 });
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server chạy tại http://localhost:${PORT}`));
