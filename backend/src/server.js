@@ -12,6 +12,7 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
+
 app.use(express.json());
 
 // Kết nối MongoDB
@@ -26,6 +27,7 @@ mongoose.connect(process.env.MONGO_URI, {
 app.use("/api/products", productRouter);
 app.use("/api/carts", CartRouter);
 app.use("/api/users", userRouter);
+app.use("/uploads", express.static("uploads"));
 
 
 const agent = new https.Agent({

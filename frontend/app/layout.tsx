@@ -1,7 +1,6 @@
+// @ts-ignore: allow side-effect CSS import without type declarations
 import './globals.css';
 import type { ReactNode } from 'react';
-import Headers from '@/components/layout/header';
-import Footer from '@/components/layout/footer';
 import ClientLayoutWrapper from "@/components/layout/ClientLayoutWrapper";
 
 export const metadata = {

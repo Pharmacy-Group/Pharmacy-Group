@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+
 const protect = async (req, res, next) => {
   let token;
 
@@ -22,5 +23,7 @@ const protect = async (req, res, next) => {
     return res.status(401).json({ message: "Không có quyền truy cập" });
   }
 };
+
+
 
 module.exports = { protect };

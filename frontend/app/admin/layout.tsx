@@ -1,3 +1,4 @@
+// @ts-ignore: side-effect CSS import without type declarations
 import './admin.css';
 import Header from './compoments/Header';
 import Sidebar from './compoments/Sidebar';
@@ -9,13 +10,15 @@ export const metadata = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return ( 
-    <body>
-        
-        <main className='flex'>{children}</main>
+    <div className="flex">
+      <Sidebar />
+
+      <div className="flex-1">
         <Header />
-        <Sidebar />
+        <main>{children}</main>
         <ProductTable />
-    </body>
+      </div>
+    </div>
     
   );
 }

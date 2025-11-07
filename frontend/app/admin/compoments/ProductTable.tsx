@@ -1,179 +1,166 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Trash2, Edit2, Plus, Search } from "lucide-react";
 
-interface Product {
-  _id?: string;
-  name: string;
-  desc: string;
-  price: number;
-  image: string;
-  unit: string;
-  discount: number;
-}
+import { useState } from "react";
+import useProducts from "@/hooks/useProducts";
+import { Trash2, Edit2, Plus } from "lucide-react";
 
 export default function ProductTable() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { products, createProduct, updateProduct, deleteProduct } =
+    useProducts();
+
   const [search, setSearch] = useState("");
   const [unit, setUnit] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const productsPerPage = 5;
-
-  // Popup
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState<any>(null);
+  const [editing, setEditing] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(5);
 
-  useEffect(() => {
-    loadProducts();
-  }, []);
+  const filtered = (products ?? []).filter(
+    (p: any) =>
+      (p?.name ?? "").toLowerCase().includes((search ?? "").toLowerCase()) &&
+      (unit ? p.unit === unit : true)
+  );
 
-  const loadProducts = () => {
-    fetch("http://localhost:5000/api/products")
-      .then((res) => res.json())
-      .then((data) => setProducts(data))
-      .catch((err) => console.error(err));
-  };
+  const getPageList = (total: number, current: number) => {
+    const range: (number | string)[] = [];
+    const maxVisible = 4;
 
-  const deleteProduct = async (id: string | undefined) => {
-    if (!confirm("Bạn chắc chắn muốn xóa?")) return;
-
-    await fetch(`http://localhost:5000/api/products/${id}`, {
-      method: "DELETE",
-    });
-
-    loadProducts();
-  };
-
-  const saveProduct = async (e: any) => {
-    e.preventDefault();
-    const form = new FormData(e.target);
-
-    const newProduct = {
-      name: form.get("name"),
-      desc: form.get("desc"),
-      price: Number(form.get("price")),
-      image: form.get("image"),
-      unit: form.get("unit"),
-      discount: Number(form.get("discount")),
-    };
-
-    if (editing?._id) {
-      await fetch(`http://localhost:5000/api/products/${editing._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newProduct),
-      });
+    if (total <= maxVisible + 2) {
+      for (let i = 1; i <= total; i++) range.push(i);
     } else {
-      await fetch(`http://localhost:5000/api/products`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newProduct),
-      });
+      range.push(1);
+      if (current > maxVisible - 1) range.push("...");
+      const start = Math.max(2, current - 1);
+      const end = Math.min(total - 1, current + 1);
+      for (let i = start; i <= end; i++) range.push(i);
+      if (current < total - (maxVisible - 2)) range.push("...");
+      range.push(total);
+    }
+    return range;
+  };
+
+  const start = (page - 1) * limit;
+  const end = start + limit;
+  const display = filtered.slice(start, end);
+  const totalPages = Math.ceil(filtered.length / limit);
+
+  const submit = async (e: any) => {
+    e.preventDefault();
+    const form = new FormData();
+    form.append("name", e.target.name.value);
+    form.append("desc", e.target.desc.value);
+    form.append("price", e.target.price.value);
+    form.append("unit", e.target.unit.value);
+    form.append("discount", e.target.discount.value);
+    if (e.target.image.files[0]) form.append("image", e.target.image.files[0]);
+
+    if (editing) {
+      await updateProduct(editing._id, form, true);
+    } else {
+      await createProduct(form, true);
     }
 
     setShowForm(false);
     setEditing(null);
-    loadProducts();
   };
-
-  // Lọc sản phẩm
-  const filtered = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) &&
-      (unit ? p.unit === unit : true)
-  );
-
-  const start = (currentPage - 1) * productsPerPage;
-  const currentProducts = filtered.slice(start, start + productsPerPage);
 
   return (
     <div className="ml-64 mt-16 p-6">
       <h2 className="text-2xl font-bold mb-4">Danh sách sản phẩm</h2>
-
-      {/* Tìm kiếm + lọc + thêm */}
-      <div className="flex flex-wrap gap-4 mb-5">
-        <div className="flex items-center border px-3 py-2 rounded-lg w-72">
-          <Search size={16} />
+      <div className="flex items-center justify-between rounded mb-4">
+        <div className="flex items-center gap-3">
           <input
-            className="ml-2 w-full outline-none"
+            className="border px-3 py-2 rounded w-80"
             placeholder="Tìm sản phẩm..."
             onChange={(e) => setSearch(e.target.value)}
           />
+          <select
+            className="border px-3 py-2 rounded"
+            onChange={(e) => setUnit(e.target.value)}
+          >
+            <option value="">Lọc</option>
+            <option value="Vỉ thuốc">Vỉ thuốc</option>
+            <option value="Hộp lớn">Hộp lớn</option>
+            <option value="Chai 100ml">Chai 100ml</option>
+            <option value="Gói nhỏ">Gói nhỏ</option>
+          </select>
         </div>
 
-        <select
-          className="border px-3 py-2 rounded-lg"
-          onChange={(e) => setUnit(e.target.value)}
-        >
-          <option value="">Lọc theo đơn vị</option>
-          <option value="Vỉ">Vỉ</option>
-          <option value="Hộp">Hộp</option>
-          <option value="Viên">Viên</option>
-          <option value="Lọ">Lọ</option>
-        </select>
+        <div className="flex items-center gap-3">
+          <select
+            className="border px-2 py-1 rounded"
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            <option value={5}>5/sp</option>
+            <option value={10}>10/sp</option>
+            <option value={20}>20/sp</option>
+            <option value={50}>50/sp</option>
+          </select>
 
-        <button
-          onClick={() => {
-            setEditing(null);
-            setShowForm(true);
-          }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-        >
-          <Plus size={18} /> Thêm sản phẩm
-        </button>
+          <button
+            onClick={() => {
+              setEditing(null);
+              setShowForm(true);
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
+          >
+            <Plus size={18} /> Thêm
+          </button>
+        </div>
       </div>
 
-      {/* TABLE */}
-      <table className="w-full border-collapse bg-white shadow rounded-lg">
-        <thead>
-          <tr className="bg-gray-100 text-sm">
+      <table className="w-full bg-white shadow border">
+        <thead className="bg-gray-100">
+          <tr>
             <th className="border p-2">Ảnh</th>
             <th className="border p-2">Tên</th>
-            <th className="border p-2">Mô tả</th>
             <th className="border p-2">Giá</th>
-            <th className="border p-2">Giảm giá</th>
+            <th className="border p-2">Giảm</th>
             <th className="border p-2">Đơn vị</th>
             <th className="border p-2">Sửa</th>
             <th className="border p-2">Xóa</th>
           </tr>
         </thead>
         <tbody>
-          {currentProducts.map((p) => (
+          {display.map((p: any) => (
             <tr key={p._id} className="hover:bg-gray-50">
               <td className="border p-2 text-center">
-                <img className="w-14 h-14 rounded object-cover mx-auto" src={p.image} />
+                <img
+                  src={p.image}
+                  className="w-14 h-14 object-cover rounded mx-auto"
+                />
               </td>
-              <td className="border p-2 font-semibold">{p.name}</td>
-              <td className="border p-2 text-sm max-w-xs">{p.desc}</td>
-              <td className="border p-2 text-blue-600 font-semibold">
-                {p.price.toLocaleString()}₫
+              <td className="border p-2">{p.name}</td>
+              <td className="border p-2 text-teal-600 font-semibold">
+                {(p.price - (p.price * p.discount) / 100).toLocaleString()}₫
+                {p.discount > 0 && (
+                  <span className="text-gray-400 line-through ml-1 text-sm">
+                    {p.price.toLocaleString()}₫
+                  </span>
+                )}
               </td>
-              <td className="border p-2 text-center">
-                {p.discount}% <br />
-                <span className="text-green-600 text-sm">
-                  Giá còn: {(p.price * (1 - p.discount / 100)).toLocaleString()}₫
-                </span>
-              </td>
+              <td className="border p-2 text-center">{p.discount}%</td>
               <td className="border p-2 text-center">{p.unit}</td>
-
               <td className="border p-2 text-center">
                 <button
-                  className="text-blue-600 hover:text-blue-800"
+                  className="text-blue-600"
                   onClick={() => {
                     setEditing(p);
                     setShowForm(true);
                   }}
                 >
-                  <Edit2 size={18} />
+                  <Edit2 />
                 </button>
               </td>
-
               <td className="border p-2 text-center">
-                <button
-                  className="text-red-600 hover:text-red-800"
-                  onClick={() => deleteProduct(p._id!)}
-                >
-                  <Trash2 size={18} />
+                <button className="text-red-600" onClick={() => setDeleting(p)}>
+                  <Trash2 />
                 </button>
               </td>
             </tr>
@@ -181,45 +168,73 @@ export default function ProductTable() {
         </tbody>
       </table>
 
-      {/* Phân trang */}
-      <div className="flex items-center gap-3 mt-4">
+      <div className="flex justify-center items-center p-3 rounded mt-4 flex-wrap gap-2">
         <button
-          disabled={currentPage === 1}
-          className="px-3 py-1 border rounded disabled:opacity-50"
-          onClick={() => setCurrentPage((p) => p - 1)}
+          className="px-3 py-2 bg-white rounded disabled:opacity-50"
+          onClick={() => setPage(1)}
+          disabled={page === 1 || totalPages === 0}
         >
-          ◀
+          ⏮
+        </button>
+        <button
+          className="px-3 py-2 bg-white rounded disabled:opacity-50"
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={page === 1 || totalPages === 0}
+        >
+          ⬅
         </button>
 
-        <span>
-          Trang {currentPage} / {Math.ceil(filtered.length / productsPerPage)}
-        </span>
+        {totalPages > 1 &&
+          getPageList(totalPages, page).map((item, idx) =>
+            item === "..." ? (
+              <span key={`dot-${idx}`} className="px-2">
+                ...
+              </span>
+            ) : (
+              <button
+                key={`page-${item}`}
+                onClick={() => setPage(item as number)}
+                className={`px-3 py-1 rounded border ${
+                  page === item
+                    ? "bg-green-600 text-white border-green-600"
+                    : "bg-white border-gray-300"
+                }`}
+              >
+                {item}
+              </button>
+            )
+          )}
 
         <button
-          disabled={start + productsPerPage >= filtered.length}
-          className="px-3 py-1 border rounded disabled:opacity-50"
-          onClick={() => setCurrentPage((p) => p + 1)}
+          className="px-3 py-2 bg-white rounded disabled:opacity-50"
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={page === totalPages || totalPages === 0}
         >
-          ▶
+          ➡
+        </button>
+        <button
+          className="px-3 py-2 bg-white rounded disabled:opacity-50"
+          onClick={() => setPage(totalPages)}
+          disabled={page === totalPages || totalPages === 0}
+        >
+          ⏭
         </button>
       </div>
 
-      {/* POPUP */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50">
           <form
-            onSubmit={saveProduct}
-            className="bg-white p-6 w-96 shadow rounded-lg space-y-3"
+            onSubmit={submit}
+            className="bg-white p-5 rounded-lg w-96 space-y-3"
           >
             <h2 className="text-xl font-bold">
               {editing ? "Sửa sản phẩm" : "Thêm sản phẩm"}
             </h2>
-
             <input
               name="name"
               defaultValue={editing?.name}
               className="border p-2 w-full rounded"
-              placeholder="Tên sản phẩm"
+              placeholder="Tên"
               required
             />
             <input
@@ -242,29 +257,33 @@ export default function ProductTable() {
               defaultValue={editing?.discount}
               type="number"
               className="border p-2 w-full rounded"
-              placeholder="Giảm giá (%)"
+              placeholder="Giảm (%)"
               required
             />
             <input
               name="image"
-              defaultValue={editing?.image}
+              type="file"
+              accept="image/*"
               className="border p-2 w-full rounded"
-              placeholder="Link ảnh"
-              required
+              required={!editing}
+              onChange={(e) => {
+                const file =
+                  e.target.files && e.target.files.length > 0
+                    ? e.target.files[0]
+                    : null;
+                setSelectedFile(file);
+              }}
             />
-
             <select
               name="unit"
               defaultValue={editing?.unit}
               className="border p-2 w-full rounded"
-              required
             >
-              <option value="Vỉ">Vỉ</option>
-              <option value="Hộp">Hộp</option>
-              <option value="Viên">Viên</option>
-              <option value="Lọ">Lọ</option>
+              <option value="Vỉ thuốc">Vỉ thuốc</option>
+              <option value="Hộp lớn">Hộp lớn</option>
+              <option value="Chai 100ml">Chai 100ml</option>
+              <option value="Gói nhỏ">Gói nhỏ</option>
             </select>
-
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -278,6 +297,34 @@ export default function ProductTable() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {deleting && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/50">
+          <div className="bg-white p-5 rounded-lg w-80 text-center">
+            <h2 className="text-xl font-bold mb-4">Xác nhận xóa</h2>
+            <p className="mb-4">
+              Bạn có chắc muốn xóa <strong>{deleting.name}</strong> không?
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setDeleting(null)}
+                className="px-4 py-2 border rounded"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={async () => {
+                  await deleteProduct(deleting._id);
+                  setDeleting(null);
+                }}
+                className="px-4 py-2 bg-red-600 text-white rounded"
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
