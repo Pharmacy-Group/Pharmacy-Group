@@ -2,6 +2,7 @@
 import './globals.css';
 import type { ReactNode } from 'react';
 import ClientLayoutWrapper from "@/components/layout/ClientLayoutWrapper";
+import { AuthProvider } from "@/components/user/AuthContext";
 
 export const metadata = {
   title: 'Nhà thuốc Benzen',
@@ -29,9 +30,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body suppressHydrationWarning>
-        <ClientLayoutWrapper>
-          {children}
-        </ClientLayoutWrapper>
+        <AuthProvider>
+          <ClientLayoutWrapper>
+            {children}
+          </ClientLayoutWrapper>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -3,7 +3,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import Link from "next/link";
 
 interface Product {
   image: string;
@@ -16,7 +15,6 @@ interface MiniCartProps {
   product: Product | null;
   onClose: () => void;
 }
-
 
 export default function MiniCart({ show, product, onClose }: MiniCartProps) {
   const router = useRouter();
@@ -34,30 +32,35 @@ export default function MiniCart({ show, product, onClose }: MiniCartProps) {
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 25 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 30 }}
-          transition={{ duration: 0.3 }}
-          className="fixed bottom-6 right-6 bg-white space-y-6 border border-green-300 shadow-lg rounded-2xl p-4 flex items-center space-x-4 cursor-pointer z-50"
-          onClick={() => router.push("/cart")}
+          exit={{ opacity: 0, y: 25 }}
+          transition={{ duration: 0.25 }}
+          className="
+            fixed bottom-6 right-6 z-50
+            bg-white border border-gray-200 shadow-xl
+            rounded-xl p-3 w-64
+            flex items-center gap-3 cursor-pointer
+          "
+          onClick={() => router.push("/carts")}
         >
+          {/* Product Image */}
           <img
             src={product.image}
             alt={product.name}
-            className="w-12 h-12 object-cover rounded-lg border"
+            className="w-10 h-10 rounded-lg object-cover border"
           />
-          <div>
-            <p className="text-green-700 font-semibold">{product.name}</p>
-            <p className="text-sm text-gray-600">
-              Đã thêm vào giỏ hàng ({product.price.toLocaleString()}₫)
+
+          {/* Text */}
+          <div className="flex-1">
+            <p className="text-gray-800 font-semibold text-sm line-clamp-1">
+              {product.name}
+            </p>
+
+            <p className="text-xs text-gray-500">
+              Đã thêm vào giỏ • {product.price.toLocaleString()}₫
             </p>
           </div>
-
-          <Link href="/cart">
-            <div className="absolute bottom-2 right-3 text-blue-600 hover:underline text-sm ">
-              Xem giỏ hàng
-            </div>
-          </Link>
         </motion.div>
       )}
     </AnimatePresence>

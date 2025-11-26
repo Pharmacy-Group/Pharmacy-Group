@@ -46,47 +46,45 @@ export default function ForgotPasswordForm({ onChangeMode, onClose }: Props) {
   };
 
   return (
-    <div
-      className={`relative bg-[#f1f8f2] rounded-xl shadow-2xl flex w-[700px] h-[420px] overflow-hidden`}
-    >
+    <div className="relative flex w-[700px] h-[420px] rounded-xl shadow-2xl overflow-hidden bg-[#f1f8f2]">
       <button
         onClick={onClose}
-        className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 transition-transform hover:scale-110 z-10"
+        className="absolute top-3 right-3 z-10 text-gray-500 hover:text-gray-700 transition-transform hover:scale-110"
       >
         <XMarkIcon className="w-8 h-8" />
       </button>
 
-      <div className="relative w-1/2 bg-gray-100 hidden m-10 md:block">
+      <div className="relative hidden md:block w-1/2 m-10 bg-gray-100 rounded-lg">
         <Image
           src="/images/cuahang.jpg"
           alt="Forgot Password Illustration"
           fill
-          className="rounded-lg object-contain"
+          className="object-contain rounded-lg"
         />
       </div>
 
-      <div className="w-full md:w-1/2 p-8 flex flex-col justify-center bg-[#f1f8f2]">
-        <h2 className="text-2xl font-bold mb-4 text-center">Quên mật khẩu</h2>
-        <p className="text-center text-sm text-gray-600 mb-4">
-          Nhập email của bạn, chúng tôi sẽ gửi một liên kết để đặt lại mật khẩu.
+      <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
+        <h2 className="text-2xl font-bold mb-2 text-center">Quên mật khẩu</h2>
+        <p className="text-center text-gray-600 text-sm mb-4">
+          Nhập email của bạn, chúng tôi sẽ gửi liên kết để đặt lại mật khẩu.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-3 py-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
             <input
               type="email"
               placeholder="Email"
-              className="w-full border border-gray-200 rounded-md p-2 pl-10 focus:ring-2 focus:ring-green-600 outline-none bg-white" // Style nhất quán
+              className="w-full p-2 pl-10 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-green-600 bg-white"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <EnvelopeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />{" "}
+            <EnvelopeIcon className="absolute left-3 top-1/2 w-5 h-5 text-gray-400 -translate-y-1/2" />
           </div>
 
           {message.text && (
             <div
-              className={`text-sm text-center ${
+              className={`text-center text-sm ${
                 message.type === "success" ? "text-green-600" : "text-red-600"
               }`}
             >
@@ -96,23 +94,24 @@ export default function ForgotPasswordForm({ onChangeMode, onClose }: Props) {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full bg-yellow-500 text-white py-2 rounded-md hover:bg-yellow-600 disabled:opacity-60 flex items-center justify-center gap-2" // Nút màu vàng cho chức năng "forgot"
+            disabled={loading || !email}
+            className="w-full flex items-center justify-center gap-2 py-2 text-white bg-yellow-500 rounded-md hover:bg-yellow-600 disabled:opacity-60"
           >
             {loading ? (
-              "Đang gửi..."
+              <span>Đang gửi...</span>
             ) : (
               <>
-                <PaperAirplaneIcon className="w-5 h-5" /> Gửi yêu cầu
+                <PaperAirplaneIcon className="w-5 h-5" />
+                Gửi yêu cầu
               </>
             )}
           </button>
         </form>
 
-        <div className="text-sm text-center mt-3">
+        <div className="text-center mt-3 text-sm">
           <button
             onClick={() => onChangeMode("login")}
-            className="text-blue-600 hover:underline flex items-center justify-center gap-1 mx-auto"
+            className="flex items-center justify-center gap-1 mx-auto text-blue-600 hover:underline"
           >
             <ArrowUturnLeftIcon className="w-4 h-4" />
             Quay lại đăng nhập

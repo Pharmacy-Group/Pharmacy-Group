@@ -1,74 +1,243 @@
 const User = require("../models/User");
-const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
-const generateToken = (user) => {
-  return jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
-};
-
-const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
+const register = async (req, res) => {
   try {
-    const userExists = await User.findOne({ email });
-    if (userExists)
-      return res.status(400).json({ message: "Email đã tồn tại!" });
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password)
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập đầy đủ thông tin!",
+      });
+
+    const exist = await User.findOne({ email });
+    if (exist)
+      return res.status(400).json({
+        success: false,
+        message: "Email đã tồn tại!",
+      });
 
     const user = await User.create({ name, email, password });
-    res.status(201).json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user),
+
+    req.session.userId = user._id;
+
+    res.json({
+      success: true,
+      message: "Đăng ký thành công!",
+      user: { id: user._id, name: user.name, email: user.email },
     });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ success: false, message: "Lỗi server!" });
   }
 };
 
-const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-
+const login = async (req, res) => {
   try {
+    const { email, password } = req.body;
+
+    if (!email || !password)
+      return res
+        .status(400)
+        .json({ success: false, message: "Thiếu email hoặc mật khẩu" });
+
     const user = await User.findOne({ email });
     if (!user)
-      return res.status(400).json({ message: "Sai email hoặc mật khẩu" });
+      return res.status(400).json({
+        success: false,
+        message: "Email không tồn tại!",
+      });
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch)
-      return res.status(400).json({ message: "Sai email hoặc mật khẩu" });
+      return res.status(400).json({
+        success: false,
+        message: "Sai mật khẩu!",
+      });
+
+    req.session.userId = user._id;
 
     res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user),
+      success: true,
+      message: "Đăng nhập thành công!",
+      user: { id: user._id, name: user.name, email: user.email },
     });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ success: false, message: "Lỗi server!" });
   }
 };
 
-const forgotPassword = async (req, res) => {
-  const { email } = req.body;
+const logout = async (req, res) => {
+  req.session.destroy(() => {
+    res.json({ success: true, message: "Đăng xuất thành công!" });
+  });
+};
+
+const forgot = async (req, res) => {
   try {
+    const { email } = req.body;
+
     const user = await User.findOne({ email });
     if (!user)
-      return res.status(404).json({ message: "Không tìm thấy tài khoản!" });
+      return res.status(400).json({
+        success: false,
+        message: "Email không tồn tại!",
+      });
 
-    const newPassword = Math.random().toString(36).slice(-8);
-    user.password = newPassword;
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    user.resetToken = otp;
+    user.resetTokenExpire = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    res.json({ message: `Mật khẩu mới: ${newPassword}` });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      to: email,
+      subject: "Mã khôi phục mật khẩu",
+      text: `Mã OTP của bạn là: ${otp}`,
+    });
+
+    res.json({
+      success: true,
+      message: "Đã gửi mã OTP về email!",
+    });
+  } catch (err) {
+    console.error("Forgot password error:", err);
+    res.status(500).json({ success: false, message: "Lỗi server!" });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    const user = await User.findOne({
+      email,
+      resetToken: otp,
+      resetTokenExpire: { $gt: Date.now() },
+    });
+
+    if (!user)
+      return res.status(400).json({
+        success: false,
+        message: "OTP không hợp lệ hoặc đã hết hạn!",
+      });
+
+    user.password = newPassword;
+    user.resetToken = undefined;
+    user.resetTokenExpire = undefined;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Đặt lại mật khẩu thành công!",
+    });
+  } catch (err) {
+    console.error("Reset password error:", err);
+    res.status(500).json({ success: false, message: "Lỗi server!" });
+  }
+};
+
+const getCurrentUser = async (req, res) => {
+  try {
+    if (!req.session.userId)
+      return res.status(401).json({
+        success: false,
+        message: "Bạn chưa đăng nhập!",
+      });
+
+    const user = await User.findById(req.session.userId).select("-password");
+
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error("Me error:", err);
+    res.status(500).json({ success: false, message: "Lỗi server!" });
+  }
+};
+
+const protect = async (req, res, next) => {
+  try {
+    if (!req.session.userId)
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập trước!",
+      });
+
+    const user = await User.findById(req.session.userId).select("-password");
+
+    if (!user)
+      return res.status(401).json({
+        success: false,
+        message: "Tài khoản không tồn tại!",
+      });
+
+    req.user = user;
+
+    next();
+  } catch (err) {
+    console.error("Protect error:", err);
+    res.status(500).json({ success: false, message: "Lỗi server!" });
+  }
+};
+
+const getUsers = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const searchTerm = req.query.search || "";
+
+    const searchCondition = searchTerm
+      ? {
+          $or: [
+            { name: { $regex: searchTerm, $options: "i" } },
+            { email: { $regex: searchTerm, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const totalCount = await User.countDocuments(searchCondition);
+
+    const users = await User.find(searchCondition)
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    res.json({
+      success: true,
+      message: "Lấy danh sách người dùng thành công.",
+      items: users,
+      totalPages,
+      totalCount,
+      currentPage: page,
+    });
+  } catch (err) {
+    console.error("Get Users error:", err);
+    res.status(500).json({ success: false, message: "Lỗi server!" });
   }
 };
 
 module.exports = {
-  registerUser,
-  loginUser,
-  forgotPassword,
+  register,
+  login,
+  logout,
+  forgot,
+  resetPassword,
+  getCurrentUser,
+  getUsers,
+  protect,
 };

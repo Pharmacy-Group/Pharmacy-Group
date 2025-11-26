@@ -1,7 +1,9 @@
+"use client";
 import React, { useEffect, useState } from "react";
 import LoginForm from "@/components/user/LoginForm";
 import RegisterForm from "@/components/user/RegisterForm";
 import ForgotPasswordForm from "@/components/user/ForgotPasswordForm";
+import useCartCount from "@/hooks/useCartCount";
 
 interface Props {
   isOpen: boolean;
@@ -10,10 +12,12 @@ interface Props {
 
 export default function LoginModal({ isOpen, onClose }: Props) {
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
+  const { fetchCartCount } = useCartCount();
 
   useEffect(() => {
     if (isOpen) setMode("login");
   }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
@@ -22,12 +26,18 @@ export default function LoginModal({ isOpen, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="relative  rounded-2xl flex flex-col md:flex-row  mx-auto overflow-hidden"
+        className="relative rounded-2xl flex flex-col md:flex-row mx-auto overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className=" p-8 relative">
+        <div className="p-8 relative">
           {mode === "login" && (
-            <LoginForm onChangeMode={setMode} onClose={onClose} />
+            <LoginForm
+              onChangeMode={setMode}
+              onClose={onClose}
+              onSuccess={async () => {
+                await fetchCartCount();
+              }}
+            />
           )}
           {mode === "register" && (
             <RegisterForm onChangeMode={setMode} onClose={onClose} />

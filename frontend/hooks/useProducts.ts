@@ -7,13 +7,14 @@ export default function useProducts() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 🔁 Dùng useCallback để tránh re-create function
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+
       const res = await fetch(API);
       if (!res.ok) throw new Error("Không thể tải sản phẩm");
+
       const data = await res.json();
       setProducts(data);
     } catch (err: any) {
@@ -21,10 +22,9 @@ export default function useProducts() {
     } finally {
       setLoading(false);
     }
-  }, [API]);
+  }, []);
 
-  // 🧩 Hàm thêm sản phẩm
-  const createProduct = async (data: FormData | Record<string, any>, p0: boolean) => {
+  const createProduct = async (data: FormData | Record<string, any>) => {
     try {
       const isFormData = data instanceof FormData;
 
@@ -35,6 +35,7 @@ export default function useProducts() {
       });
 
       if (!res.ok) throw new Error("Thêm sản phẩm thất bại");
+
       const newProduct = await res.json();
       setProducts((prev) => [...prev, newProduct]);
     } catch (err: any) {
@@ -42,8 +43,7 @@ export default function useProducts() {
     }
   };
 
-  // 🧩 Hàm cập nhật sản phẩm
-  const updateProduct = async (id: string, data: FormData | Record<string, any>, p0: boolean) => {
+  const updateProduct = async (id: string, data: FormData | Record<string, any>) => {
     try {
       const isFormData = data instanceof FormData;
 
@@ -54,6 +54,7 @@ export default function useProducts() {
       });
 
       if (!res.ok) throw new Error("Cập nhật sản phẩm thất bại");
+
       const updated = await res.json();
       setProducts((prev) => prev.map((p) => (p._id === id ? updated : p)));
     } catch (err: any) {
@@ -61,11 +62,12 @@ export default function useProducts() {
     }
   };
 
-  // 🗑️ Hàm xóa sản phẩm
   const deleteProduct = async (id: string) => {
     try {
       const res = await fetch(`${API}/${id}`, { method: "DELETE" });
+
       if (!res.ok) throw new Error("Xóa sản phẩm thất bại");
+
       setProducts((prev) => prev.filter((p) => p._id !== id));
     } catch (err: any) {
       setError(err.message);

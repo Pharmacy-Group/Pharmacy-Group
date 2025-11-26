@@ -3,7 +3,6 @@ const router = express.Router();
 const Product = require("../models/Product");
 const upload = require("../middleware/upload");
 
-// 🟢 Lấy tất cả sản phẩm
 router.get("/", async (req, res) => {
   try {
     const products = await Product.find();
@@ -13,7 +12,6 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 🟢 Thêm sản phẩm
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     const product = new Product({
@@ -32,7 +30,6 @@ router.post("/", upload.single("image"), async (req, res) => {
   }
 });
 
-// 🟢 Cập nhật sản phẩm
 router.put("/:id", upload.single("image"), async (req, res) => {
   try {
     const updates = {
@@ -52,7 +49,6 @@ router.put("/:id", upload.single("image"), async (req, res) => {
   }
 });
 
-// 🟢 Xóa sản phẩm
 router.delete("/:id", async (req, res) => {
   try {
     const deleted = await Product.findByIdAndDelete(req.params.id);

@@ -1,11 +1,7 @@
 "use client";
-import { useRef, useEffect, useState } from "react";
-import MiniCart from "../carts/MiniCart";
-import useProducts from "@/hooks/useProducts";
-import useCartActions from "@/hooks/useCartActions";
-import { SlArrowLeft } from "react-icons/sl";
-import { SlArrowRight } from "react-icons/sl";
-import { BsFire } from "react-icons/bs";
+
+import React, { useEffect, useRef, useState } from "react";
+import { SlArrowLeft, SlArrowRight } from "react-icons/sl";
 import {
   Trophy,
   Brain,
@@ -19,539 +15,473 @@ import {
   Smile,
   User,
   Heart,
-  LucideIcon,
 } from "lucide-react";
+import { BsFire } from "react-icons/bs";
+import MiniCart from "../carts/MiniCart";
+import useProducts from "@/hooks/useProducts";
+import useCartActions from "@/hooks/useCartActions";
+import { useRouter } from "next/navigation";
 
-interface Category {
-  icon: string;
-  title: string;
-  products: number;
-}
 
-interface HealthItem {
-  id: number;
-  image: string;
-  title: string;
-  description: string;
-}
-const iconMap: { [key: string]: LucideIcon } = {
-  Brain: Brain,
-  Pill: Pill,
-  HeartPulse: HeartPulse,
-  Shield: Shield,
-  Stethoscope: Stethoscope,
-  Cross: Cross,
-  Apple: Apple,
-  Syringe: Syringe,
-  Smile: Smile,
-  User: User,
-  Heart: Heart,
-};
 
-interface DynamicIconProps {
-  name: string;
-  className?: string;
-}
-
-const mockBrands = [
-  {
-    id: 1,
-    logo: "/images/logo-JpanWell.jpg",
-    image: "/images/thuoc.jpg",
-    discount: "Giảm đến 35%",
-  },
-  {
-    id: 2,
-    logo: "/images/logo-Ocavill.jpg",
-    image: "/images/thuoc10.jpg",
-    discount: "Giảm đến 20%",
-  },
-  {
-    id: 3,
-    logo: "/images/logo-Brauer.jpg",
-    image: "/images/thuoc11.jpg",
-    discount: "Giảm đến 20%",
-  },
-  {
-    id: 4,
-    logo: "/images/logo-VitaminsForLife.jpg",
-    image: "/images/thuoc12.jpg",
-    discount: "Giảm đến 20%",
-  },
-  {
-    id: 5,
-    logo: "/images/logo-Vitabiotics.jpg",
-    image: "/images/thuoc13.jpg",
-    discount: "Giảm đến 20%",
-  },
-  {
-    id: 6,
-    logo: "/images/logo-Datino.jpg",
-    image: "/images/thuoc14.jpg",
-    discount: "Giảm đến 20%",
-  },
-  {
-    id: 7,
-    logo: "/images/logo-Okamoto.jpg",
-    image: "/images/thuoc15.jpg",
-    discount: "Giảm đến 20%",
-  },
-  {
-    id: 8,
-    logo: "/images/logo-PearlieWhite.jpg",
-    image: "/images/thuoc16.jpg",
-    discount: "Giảm đến 20%",
-  },
-  {
-    id: 9,
-    logo: "/images/logo-KamiCare.jpg",
-    image: "/images/thuoc17.jpg",
-    discount: "Giảm đến 20%",
-  },
-];
-
-const DynamicIcon: React.FC<DynamicIconProps> = ({ name, className }) => {
-  const IconComponent = iconMap[name];
-  if (!IconComponent) return null;
-  return <IconComponent className={className} />;
-};
+const ITEM_WIDTH = 225;
+const ITEM_GAP = 16;
+const VISIBLE_COUNT = 5;
 
 export default function ProductSection() {
-  const { products, loading, error } = useProducts();
-  const { handleAddToCart, showMiniCart, addedProduct, closeMiniCart } =
+  const router = useRouter();
+  const { products, loading } = useProducts();
+  const { handleAddToCart, showMiniCart, addedProduct, closeMiniCart, showLoginConfirm, closeLoginConfirm, fetchCart } =
     useCartActions();
 
-  const containerRefTop = useRef<HTMLDivElement>(null);
-  const containerRefBottom = useRef<HTMLDivElement>(null);
+  const containerRefs = {
+    top: useRef<HTMLDivElement | null>(null),
+    bottom: useRef<HTMLDivElement | null>(null),
+    bestseller: useRef<HTMLDivElement | null>(null),
+  };
 
-  const [showLeftTop, setShowLeftTop] = useState(false);
-  const [showRightTop, setShowRightTop] = useState(true);
-  const [showLeftBottom, setShowLeftBottom] = useState(false);
-  const [showRightBottom, setShowRightBottom] = useState(true);
+useEffect(() => {
+    fetchCart();
+}, [fetchCart]);
 
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    fetch("/data/categories.json")
-      .then((res) => res.json())
-      .then((data) => setCategories(data))
-      .catch((err) => console.error("Lỗi khi tải JSON:", err));
-  }, []);
-
-  const [data, setData] = useState<HealthItem[]>([]);
-
-  useEffect(() => {
-    fetch("/data/testItems.json")
-      .then((res) => res.json())
-      .then((data) => setData(data))
-      .catch((err) => console.error("Lỗi tải dữ liệu:", err));
-  }, []);
-
-  const ITEM_WIDTH = 220;
-  const GAP = 16;
-  const VISIBLE_COUNT = 5;
+  const [scrollState, setScrollState] = useState({
+    leftTop: false,
+    rightTop: true,
+    leftBottom: false,
+    rightBottom: true,
+    leftBestseller: false,
+    rightBestseller: true,
+  });
 
   const handleScroll = (
     ref: React.RefObject<HTMLDivElement | null>,
-    direction: "next" | "prev"
+    direction: "prev" | "next"
   ) => {
-    const el = ref.current;
-    if (!el) return;
-
-    const step = el.clientWidth;
-    const maxScrollLeft = el.scrollWidth - el.clientWidth;
-    const current = el.scrollLeft;
-
-    const target =
-      direction === "next"
-        ? Math.min(current + step, maxScrollLeft)
-        : Math.max(current - step, 0);
-
-    el.scrollTo({ left: target, behavior: "smooth" });
+    if (!ref.current) return;
+    const amount = (ITEM_WIDTH + ITEM_GAP) * VISIBLE_COUNT;
+    ref.current.scrollBy({
+      left: direction === "next" ? amount : -amount,
+      behavior: "smooth",
+    });
   };
 
   const updateScrollButtons = (
-    el: HTMLDivElement,
-    setLeft: React.Dispatch<React.SetStateAction<boolean>>,
-    setRight: React.Dispatch<React.SetStateAction<boolean>>
+    ref: React.RefObject<HTMLDivElement | null>,
+    type: "Top" | "Bottom" | "Bestseller"
   ) => {
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    setLeft(el.scrollLeft > 0);
-    setRight(el.scrollLeft < maxScroll - 1);
+    if (!ref.current) return;
+    const el = ref.current;
+    setScrollState((prev) => ({
+      ...prev,
+      [`left${type}`]: el.scrollLeft > 5,
+      [`right${type}`]: el.scrollLeft + el.clientWidth < el.scrollWidth - 5,
+    }));
   };
 
   useEffect(() => {
-    const elTop = containerRefTop.current;
-    const elBottom = containerRefBottom.current;
-    if (!elTop || !elBottom) return;
+    const handlers = {
+      top: () => updateScrollButtons(containerRefs.top, "Top"),
+      bottom: () => updateScrollButtons(containerRefs.bottom, "Bottom"),
+      bestseller: () =>
+        updateScrollButtons(containerRefs.bestseller, "Bestseller"),
+    };
 
-    const onScrollTop = () =>
-      updateScrollButtons(elTop, setShowLeftTop, setShowRightTop);
-    const onScrollBottom = () =>
-      updateScrollButtons(elBottom, setShowLeftBottom, setShowRightBottom);
+    const topEl = containerRefs.top.current;
+    const bottomEl = containerRefs.bottom.current;
+    const bestEl = containerRefs.bestseller.current;
 
-    elTop.addEventListener("scroll", onScrollTop);
-    elBottom.addEventListener("scroll", onScrollBottom);
-    onScrollTop();
-    onScrollBottom();
+    topEl?.addEventListener("scroll", handlers.top);
+    bottomEl?.addEventListener("scroll", handlers.bottom);
+    bestEl?.addEventListener("scroll", handlers.bestseller);
 
     return () => {
-      elTop.removeEventListener("scroll", onScrollTop);
-      elBottom.removeEventListener("scroll", onScrollBottom);
+      topEl?.removeEventListener("scroll", handlers.top);
+      bottomEl?.removeEventListener("scroll", handlers.bottom);
+      bestEl?.removeEventListener("scroll", handlers.bestseller);
     };
-  }, [products]);
+  }, []);
+
+  const categories = [
+    { icon: "Brain", title: "Thần kinh não", products: 55 },
+    { icon: "Pill", title: "Vitamin & Khoáng chất", products: 110 },
+    { icon: "HeartPulse", title: "Sức khỏe tim mạch", products: 23 },
+    { icon: "Shield", title: "Tăng sức đề kháng, miễn dịch", products: 40 },
+    { icon: "Stethoscope", title: "Hỗ trợ tiêu hóa", products: 64 },
+    { icon: "Cross", title: "Sinh lý - Nội tiết tố", products: 39 },
+    { icon: "Apple", title: "Dinh dưỡng", products: 37 },
+    { icon: "Syringe", title: "Hỗ trợ điều trị", products: 119 },
+    { icon: "Smile", title: "Giải pháp làn da", products: 93 },
+    { icon: "User", title: "Chăm sóc da mặt", products: 212 },
+    { icon: "User", title: "Hỗ trợ làm đẹp", products: 22 },
+    { icon: "Heart", title: "Hỗ trợ tình dục", products: 41 },
+  ];
+
+  const iconMap: Record<string, React.FC<any>> = {
+    Brain,
+    Pill,
+    HeartPulse,
+    Shield,
+    Stethoscope,
+    Cross,
+    Apple,
+    Syringe,
+    Smile,
+    User,
+    Heart,
+  };
+  
+  const mockBrands = [
+    {
+      id: 1,
+      image: "/images/thuoc11.jpg",
+      logo: "/images/logo-Brauer.jpg",
+      discount: "Giảm giá đến 20%",
+    },
+    {
+      id: 2,
+      image: "/images/thuoc.jpg",
+      logo: "/images/logo-JpanWell.jpg",
+      discount: "Giảm giá đến 15%",
+    },
+    {
+      id: 3,
+      image: "/images/thuoc14.jpg",
+      logo: "/images/logo-Datino.jpg",
+      discount: "Giảm giá đến 30%",
+    },
+    {
+      id: 4,
+      image: "/images/thuoc17.jpg",
+      logo: "/images/logo-KamiCare.jpg",
+      discount: "Giảm giá đến 25%",
+    },
+    {
+      id: 5,
+      image: "/images/thuoc10.jpg",
+      logo: "/images/logo-Ocavill.jpg",
+      discount: "Giảm giá đến 10%",
+    },
+    {
+      id: 6,
+      image: "/images/thuoc15.jpg",
+      logo: "/images/logo-Okamoto.jpg",
+      discount: "Giảm giá đến 18%",
+    },
+    {
+      id: 7,
+      image: "/images/thuoc16.jpg",
+      logo: "/images/logo-PearlieWhite.jpg",
+      discount: "Giảm giá đến 12%",
+    },
+    {
+      id: 8,
+      image: "/images/thuoc13.jpg",
+      logo: "/images/logo-Vitabiotics.jpg",
+      discount: "Giảm giá đến 22%",
+    },
+    {
+      id: 9,
+      image: "/images/thuoc12.jpg",
+      logo: "/images/logo-VitaminsForLife.jpg",
+      discount: "Giảm giá 16%",
+    },
+  ];
+
+  const renderProductCard = (p: any) => (
+    <div
+      key={p._id}
+      style={{width: ITEM_WIDTH}}
+      className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md flex-shrink-0 border border-transparent hover:border-blue-600">
+
+      {/* Image wrapper */}
+      <div className="relative w-full h-[150px] flex items-center justify-center mb-3 overflow-hidden">
+        <img
+          src={p.image}
+          alt={p.name}
+          className="object-contain w-full h-full"
+        />
+        {p.discount > 0 && (
+          <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+            -{p.discount}%
+          </span>
+        )}
+      </div>
+
+      {/* Name */}
+      <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[40px]">
+        {p.name}
+      </h3>
+
+      {/* Description */}
+      <p className="text-gray-500 text-xs mt-1 mb-2 line-clamp-2 min-h-[34px]">
+        {p.desc}
+      </p>
+
+      {/* Price */}
+      <div className="text-blue-600 font-semibold mb-3">
+        {p.price.toLocaleString("vi-VN")}₫ / {p.unit || "Hộp"}
+      </div>
+
+      {/* Button */}
+      <button
+        onClick={() => handleAddToCart(p, true)}
+        className="mt-auto cursor-pointer w-full py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-colors text-sm font-semibold"
+      >
+        Thêm vào giỏ
+      </button>
+    </div>
+  );
+
+  const renderFlashSaleProduct = (p: any) => {
+    const discountedPrice = Math.round(p.price * (1 - p.discount / 100));
+    return (
+      <div
+        key={p._id}
+        style={{ width: ITEM_WIDTH }}
+        className="relative bg-gradient-to-tr from-red-100 via-red-200 to-red-100 p-4 rounded-3xl shadow-lg hover:shadow-2xl flex-shrink-0 flex flex-col group overflow-hidden"
+      >
+        {/* Flash sale label */}
+        <div className="absolute top-2 right-2 bg-yellow-400 text-red-600 font-bold text-xs px-3 py-1 rounded-full animate-pulse shadow-lg z-10">
+          Giảm sốc hôm nay!
+        </div>
+
+        {/* Hình + badge giảm giá */}
+        <div className="relative w-full h-[160px] flex items-center justify-center mb-3 overflow-hidden rounded-2xl bg-white">
+          <img
+            src={p.image}
+            alt={p.name}
+            className="object-contain w-[130px] h-[130px] transition-transform duration-300 group-hover:scale-110"
+          />
+          {p.discount > 0 && (
+            <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse shadow-md">
+              -{p.discount}%
+            </span>
+          )}
+        </div>
+
+        {/* Tên sản phẩm */}
+        <h3 className="text-sm font-semibold text-gray-800 line-clamp-2">
+          {p.name}
+        </h3>
+        <p className="text-gray-600 text-xs mt-1 mb-2 line-clamp-2">{p.desc}</p>
+
+        {/* Giá */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-gray-400 line-through text-sm">
+            {p.price.toLocaleString("vi-VN")}₫
+          </span>
+          <span className="text-red-600 font-bold text-lg">
+            {discountedPrice.toLocaleString("vi-VN")}₫
+          </span>
+        </div>
+
+        {/* Nút mua */}
+        <button
+          onClick={() => {
+            handleAddToCart(p, true);
+          }}
+          className="mt-auto py-2 w-full bg-red-600 text-white font-semibold rounded-xl shadow-md hover:bg-red-700 hover:scale-105 transition-all text-sm"
+        >
+          Mua ngay
+        </button>
+
+        {/* Hiệu ứng lấp lánh */}
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+          <div
+            className="w-2 h-2 bg-yellow-300 rounded-full absolute animate-ping"
+            style={{ top: "20%", left: "10%" }}
+          ></div>
+          <div
+            className="w-1.5 h-1.5 bg-yellow-400 rounded-full absolute animate-ping delay-150"
+            style={{ top: "50%", left: "70%" }}
+          ></div>
+          <div
+            className="w-2 h-2 bg-yellow-300 rounded-full absolute animate-ping delay-300"
+            style={{ top: "80%", left: "40%" }}
+          ></div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <section className="py-6 container mx-auto">
-      <div className="flex justify-between gap-4 mb-10">
-        {[
-          {
-            icon: "https://cdn-icons-png.flaticon.com/512/3081/3081559.png",
-            label: "Cần mua thuốc",
-          },
-          {
-            icon: "https://cdn-icons-png.flaticon.com/512/2927/2927347.png",
-            label: "Tư vấn với Dược Sỹ",
-          },
-          {
-            icon: "https://cdn-icons-png.flaticon.com/512/942/942748.png",
-            label: "Đơn của tôi",
-          },
-          {
-            icon: "https://cdn-icons-png.flaticon.com/512/854/854878.png",
-            label: "Tìm nhà thuốc",
-          },
-          {
-            icon: "https://cdn-icons-png.flaticon.com/512/2947/2947960.png",
-            label: "Tiêm Vắc xin",
-          },
-          {
-            icon: "https://cdn-icons-png.flaticon.com/512/992/992651.png",
-            label: "Tra thuốc chính hãng",
-          },
-        ].map((item, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-3 bg-white rounded-xl shadow p-4 min-w-[180px] cursor-pointer "
-          >
-            <img src={item.icon} alt={item.label} className="w-10 h-10" />
-            <span className="font-medium text-gray-800">{item.label}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="relative mx-auto w-full bg-blue-100 rounded-3xl px-6 py-10 shadow-inner mb-12">
-        <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-red-600 text-white text-lg font-semibold px-10 py-2 rounded-full shadow-md">
-          Sản phẩm giảm giá
-        </div>
-
-        <div className="relative mt-6">
-          {showLeftTop && (
-            <button
-              onClick={() => handleScroll(containerRefTop, "prev")}
-              className="absolute -left-6 top-1/2 -translate-y-1/2 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center z-20"
+    <section className="mt-10 space-y-12">
+      <div className="max-w-[1200px] mx-auto">
+        <div className="w-full mt-10">
+          <h2 className="text-2xl font-bold text-red-600 flex items-center gap-2">
+            <img src="/images/checklist.png" alt="icon" width={26} /> FLASH SALE
+            hôm nay
+          </h2>
+          <div className="relative">
+            {scrollState.leftTop && (
+              <button
+                onClick={() => handleScroll(containerRefs.top, "prev")}
+                className="absolute -left-4 top-1/2 -translate-y-1/2 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center z-10"
+              >
+                <SlArrowLeft />
+              </button>
+            )}
+            <div
+              ref={containerRefs.top}
+              className="flex gap-4 overflow-x-auto scrollbar-hide py-2"
             >
-              <SlArrowLeft />
-            </button>
-          )}
-
-          <div
-            ref={containerRefTop}
-            className="overflow-x-hidden scrollbar-hide"
-            style={{ scrollBehavior: "smooth" }}
-          >
-            <div className="flex gap-4">
               {loading
                 ? Array.from({ length: VISIBLE_COUNT }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-gray-200 animate-pulse rounded-2xl"
-                      style={{ width: 180, height: 300 }}
-                    />
-                  ))
+                  <div
+                    key={i}
+                    className="w-[215px] h-[360px] bg-gray-200 animate-pulse rounded-3xl flex-shrink-0"
+                  />
+                ))
                 : products
-                    .filter((p) => p.discount && p.discount > 0)
-                    .map((p) => (
-                      <div
-                        key={p._id}
-                        className="relative bg-white p-5 rounded-2xl shadow-md hover:shadow-lg transition-all duration-300 flex-shrink-0 border border-transparent hover:border-blue-600"
-                        style={{ width: 210 }}
-                      >
-                        <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
-                          -{p.discount}%
-                        </div>
-
-                        <div className="bg-gray-50 rounded-xl flex items-center justify-center h-44 mb-3 overflow-hidden">
-                          <img
-                            src={p.image}
-                            alt={p.name}
-                            className="max-h-40 product-desc object-contain hover:scale-105 transition-transform duration-300"
-                            style={{ width: 300 }}
-                          />
-                        </div>
-
-                        <h3 className="text-sm font-semibold line-clamp-2 min-h-[38px] text-gray-800 product-desc">
-                          {p.name}
-                        </h3>
-
-                        <p className="text-gray-500 text-xs line-clamp-2 mt-1 mb-2 product-desc">
-                          {p.desc}
-                        </p>
-
-                        <div className="mt-1">
-                          <span className="text-gray-400 line-through text-sm mr-2">
-                            {p.oldPrice
-                              ? p.oldPrice.toLocaleString("vi-VN")
-                              : (p.price / (p.discount / 100)).toLocaleString(
-                                  "vi-VN"
-                                )}
-                            ₫
-                          </span>
-                          <span className="text-blue-600 font-semibold text-base">
-                            {p.price.toLocaleString("vi-VN")}₫
-                          </span>
-                          <span className="text-gray-500 text-sm ml-1">
-                            / {p.unit || "Hộp"}
-                          </span>
-                        </div>
-
-                        <div className="bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-md inline-block mt-2">
-                          Hộp {p.quantity || "1"}
-                        </div>
-
-                        <button
-                          onClick={() => handleAddToCart(p)}
-                          className="mt-4 w-full py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all text-sm font-semibold"
-                        >
-                          Thêm vào giỏ
-                        </button>
-                      </div>
-                    ))}
+                  .filter((p) => p.discount > 0)
+                  .map(renderFlashSaleProduct)}
             </div>
+            {scrollState.rightTop && (
+              <button
+                onClick={() => handleScroll(containerRefs.top, "next")}
+                className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center z-10"
+              >
+                <SlArrowRight />
+              </button>
+            )}
           </div>
-
-          {showRightTop && (
-            <button
-              onClick={() => handleScroll(containerRefTop, "next")}
-              className="absolute -right-6 top-1/2 -translate-y-1/2 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center z-20"
-            >
-              <SlArrowRight />
-            </button>
-          )}
         </div>
-      </div>
 
-      <div className="mx-auto w-full">
-        <div className="flex items-center gap-2 mb-6">
-          <Trophy className="text-green-600 w-6 h-6" />
-          <h2 className="text-xl font-semibold text-green-700">
-            Danh mục nổi bật
+        <div className="w-full py-10">
+          <h2 className="text-xl font-bold text-green-700 mb-4 flex items-center gap-2">
+            <Trophy className="text-green-600 w-6 h-6" /> Danh mục nổi bật
           </h2>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 my-8">
-          {categories.map((item, index) => (
-            <div
-              key={index}
-              className="bg-white border border-transparent hover:border-blue-600 transition-all p-5 rounded-2xl shadow-sm text-center flex flex-col items-center cursor-pointer group hover:shadow-md"
-            >
-              <DynamicIcon
-                name={item.icon}
-                className="w-8 h-8 text-blue-600 mb-3 transition-transform group-hover:scale-110"
-              />
-              <h3 className="font-medium text-gray-800">{item.title}</h3>
-              <p className="text-gray-500 text-sm">{item.products} sản phẩm</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-auto w-full">
-        <div className="flex items-center gap-2">
-          <img src="/images/checklist.png" alt="Thương hiệu uy tín" />
-          <h2 className="text-xl font-semibold text-green-700 py-6 ">
-            Thương hiệu yêu thích
-          </h2>
-        </div>
-
-        <div className="relative">
-          {showLeftBottom && (
-            <button
-              onClick={() => handleScroll(containerRefBottom, "prev")}
-              className="absolute -left-4 top-1/2 -translate-y-1/2 bg-white text-blue-600 shadow-lg rounded-full w-10 h-10 flex items-center justify-center z-20 focus:outline-none"
-              aria-label="prev"
-            >
-              <SlArrowLeft />
-            </button>
-          )}
-
-          <div
-            ref={containerRefBottom}
-            className="overflow-x-hidden scrollbar-hide"
-            style={{ scrollBehavior: "smooth" }}
-          >
-            <div className="flex gap-4">
-              {mockBrands.map((item) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {categories.map((item, idx) => {
+              const Icon = iconMap[item.icon];
+              return (
                 <div
-                  key={item.id}
-                  className="bg-white p-2 rounded-xl border border-transparent hover:border-blue-500 duration-200 cursor-pointer flex-shrink-0"
-                  style={{ width: ITEM_WIDTH }}
+                  key={idx}
+                  className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-md cursor-pointer transition border border-transparent hover:border-blue-600 flex flex-col items-center"
                 >
-                  <div className="h-40 flex items-center justify-center p-2 mb-2">
+                  {Icon && <Icon className="w-8 h-8 text-green-600 mb-2" />}
+                  <h3 className="font-medium text-gray-800 text-center">
+                    {item.title}
+                  </h3>
+                  <p className="text-gray-500 text-sm">
+                    {item.products} sản phẩm
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-bold text-green-700 mb-4 flex items-center gap-2">
+            <img src="/images/checklist.png" alt="icon" width={26} /> Thương hiệu
+            yêu thích
+          </h2>
+          <div className="relative">
+            {scrollState.leftBottom && (
+              <button
+                onClick={() => handleScroll(containerRefs.bottom, "prev")}
+                className="absolute -left-4 top-1/2 -translate-y-1/2 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center z-10 text-blue-600"
+              >
+                <SlArrowLeft />
+              </button>
+            )}
+            <div
+              ref={containerRefs.bottom}
+              className="flex gap-4 overflow-x-auto scrollbar-hide py-2"
+            >
+              {mockBrands.map((brand) => (
+                <div
+                  key={brand.id}
+                  style={{width: ITEM_WIDTH}}
+                  className="bg-white p-2 rounded-xl shadow-sm hover:shadow-md flex-shrink-0 border border-transparent hover:border-blue-600"
+                >
+                  <div className="h-40 flex items-center justify-center mb-2">
                     <img
-                      src={item.image}
+                      src={brand.image}
                       alt="Sản phẩm"
                       className="object-contain max-h-full"
                     />
                   </div>
-
-                  <div className="h-16 flex items-center justify-center rounded-xl border border-gray-200">
+                  <div className="h-16 flex items-center justify-center rounded-xl border border-gray-200 mb-2">
                     <img
-                      src={item.logo}
-                      alt="Logo thương hiệu"
+                      src={brand.logo}
+                      alt="Logo"
                       className="object-contain max-h-full"
                     />
                   </div>
-
-                  <div className="text-center font-medium text-blue-600 mt-2">
-                    {item.discount}
+                  <div className="text-center font-medium text-blue-600">
+                    {brand.discount}
                   </div>
                 </div>
               ))}
             </div>
+            {scrollState.rightBottom && (
+              <button
+                onClick={() => handleScroll(containerRefs.bottom, "next")}
+                className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center z-10 text-blue-600"
+              >
+                <SlArrowRight />
+              </button>
+            )}
           </div>
-
-          {showRightBottom && (
-            <button
-              onClick={() => handleScroll(containerRefBottom, "next")}
-              className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white text-blue-600 shadow-lg rounded-full w-10 h-10 flex items-center justify-center z-20 focus:outline-none"
-              aria-label="next"
-            >
-              <SlArrowRight />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="relative mt-10 w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-3xl py-12 overflow-hidden ">
-        <div className="mb-8 px-10">
-          <h2 className="text-3xl font-bold">Kiểm tra sức khỏe</h2>
-          <p className="text-blue-100 text-sm mt-2">
-            Kết quả đánh giá sẽ cho bạn lời khuyên xử trí phù hợp!
-          </p>
         </div>
 
-        <div className="flex gap-3  overflow-x-hidden scrollbar-hide px-6">
-          {data.slice(0, 3).map((item) => (
-            <div
-              key={item.id}
-              className="bg-white  text-gray-800 rounded-2xl shadow-md w-72 flex-shrink-0 p-4 flex flex-col justify-between hover:shadow-lg transition-all duration-300"
-            >
-              <div className="flex items-center gap-4">
-                <img
-                  src={item.image}
-                  alt={item.title}
-                  className="w-12 h-12 object-contain"
-                />
-                <div className="mx-auto w-full">
-                  <h3 className="text-sm font-semibold leading-snug">
-                    {item.title}
-                  </h3>
-                  <button className="text-blue-600 font-semibold mt-6 flex  gap-2">
-                    {item.description}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-auto w-full">
-        <div className="flex items-center gap-2">
-          <BsFire className="text-green-600 w-6 h-6" />
-          <h2 className="text-xl font-semibold text-green-700 py-6 ">
-            Sản phẩm bán chạy
+        <div className="mt-10">
+          <h2 className="text-xl font-bold text-green-700 flex items-center gap-2">
+            <BsFire className="text-green-600 w-6 h-6" /> Sản phẩm bán chạy
           </h2>
-        </div>
-
-        <div className="relative">
-          {showLeftTop && (
-            <button
-              onClick={() => handleScroll(containerRefTop, "prev")}
-              className="absolute -left-5 top-1/2 -translate-y-1/2 bg-white text-blue-600 shadow-md rounded-full w-10 h-10 flex items-center justify-center z-20 focus:outline-none"
-              aria-label="prev"
+          <div className="relative">
+            {scrollState.leftBestseller && (
+              <button
+                onClick={() => handleScroll(containerRefs.bestseller, "prev")}
+                className="absolute -left-4 top-1/2 -translate-y-1/2 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center z-10 text-blue-600"
+              >
+                <SlArrowLeft />
+              </button>
+            )}
+            <div
+              ref={containerRefs.bestseller}
+              className="flex gap-4 overflow-x-auto scrollbar-hide py-10"
             >
-              <SlArrowLeft />
-            </button>
-          )}
-
-          <div
-            ref={containerRefTop}
-            className="overflow-x-hidden scrollbar-hide"
-            style={{ scrollBehavior: "smooth" }}
-          >
-            <div className="flex gap-4">
               {loading
                 ? Array.from({ length: VISIBLE_COUNT }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="bg-gray-200 animate-pulse rounded-xl"
-                      style={{ width: ITEM_WIDTH }}
-                    />
-                  ))
-                : products.map((p) => (
-                    <div
-                      key={p._id}
-                      className="bg-white p-4 rounded-xl shadow transition-colors duration-200 border border-transparent hover:border-blue-500"
-                      style={{
-                        width: ITEM_WIDTH,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <img
-                        src={p.image}
-                        alt={p.name}
-                        className="object-contain mb-2 mx-auto"
-                      />
-                      <h3 className="text-sm font-semibold line-clamp-2 product-desc">
-                        {p.name}
-                      </h3>
-                      <p className="text-gray-500 text-xs line-clamp-2 product-desc">
-                        {p.desc}
-                      </p>
-                      <div className="text-green-600 font-semibold mt-1">
-                        {p.price.toLocaleString("vi-VN")}₫ / {p.unit || "viên"}
-                      </div>
+                  <div
+                    key={i}
+                    className="h-[225px] bg-gray-200 animate-pulse rounded-2xl flex-shrink-0"
+                  />
+                ))
+                : products.map(renderProductCard)}
+            </div>
+            {scrollState.rightBestseller && (
+              <button
+                onClick={() => handleScroll(containerRefs.bestseller, "next")}
+                className="absolute -right-4 top-1/2 -translate-y-1/2 bg-white shadow-md rounded-full w-10 h-10 flex items-center justify-center z-10 text-blue-600"
+              >
+                <SlArrowRight />
+              </button>
+            )}
+          </div>
+        </div>
 
-                      <button
-                        onClick={() => handleAddToCart(p)}
-                        className="mt-2 w-full py-1 border border-green-600 text-green-600 rounded hover:bg-green-600 hover:text-white transition-colors"
-                      >
-                        Thêm vào giỏ
-                      </button>
-                    </div>
-                  ))}
+        {showLoginConfirm && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]">
+            <div className="bg-white px-5 py-4 rounded-xl shadow-lg animate-fadeIn text-center">
+              <p className="text-gray-800 font-medium text-[16px]">
+                Bạn cần đăng nhập để thực hiện thao tác này
+              </p>
             </div>
           </div>
+        )}
 
-          {showRightTop && (
-            <button
-              onClick={() => handleScroll(containerRefTop, "next")}
-              className="absolute -right-6  top-1/2 -translate-y-1/2 bg-white text-blue-600 shadow-md rounded-full w-12 h-12 flex items-center justify-center z-20 focus:outline-none"
-              aria-label="next"
-            >
-              <SlArrowRight />
-            </button>
-          )}
-        </div>
+
+        <MiniCart
+          show={showMiniCart}
+          onClose={closeMiniCart}
+          product={addedProduct}
+        />
       </div>
 
-      <MiniCart
-        show={showMiniCart}
-        product={addedProduct}
-        onClose={closeMiniCart}
-      />
     </section>
   );
 }

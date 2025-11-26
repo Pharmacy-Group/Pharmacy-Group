@@ -1,14 +1,6 @@
+"use client";
 import React, { useState } from "react";
-import {
-  X,
-  User,
-  Phone,
-  Mail,
-  Lock,
-  CheckCircle,
-  LogIn,
-  ChevronRight,
-} from "lucide-react";
+import { X, User, Phone, Mail, Lock, CheckCircle } from "lucide-react";
 
 interface RegisterResult {
   success: boolean;
@@ -26,11 +18,11 @@ const useAuth = () => {
     phone: string
   ): Promise<RegisterResult> => {
     setLoading(true);
-
     try {
-      const res = await fetch("http://localhost:5000/api/users", {
+      const res = await fetch("http://localhost:5000/api/users/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // lưu session
         body: JSON.stringify({ name, email, password, phone }),
       });
 
@@ -38,16 +30,13 @@ const useAuth = () => {
       setLoading(false);
 
       if (!res.ok) {
-        return {
-          success: false,
-          message: data.message || "Đăng ký thất bại!",
-        };
+        return { success: false, message: data.message || "Đăng ký thất bại!" };
       }
 
       return {
         success: true,
         message: "Đăng ký thành công!",
-        _id: data._id,
+        _id: data.user?._id,
       };
     } catch (error) {
       setLoading(false);
@@ -56,32 +45,6 @@ const useAuth = () => {
   };
 
   return { register, loading };
-};
-
-
-const MessageBox = ({
-  message,
-  type,
-  onClose,
-}: {
-  message: string | null;
-  type: "success" | "error";
-  onClose: () => void;
-}) => {
-  if (!message) return null;
-  return (
-    <div
-      className={`fixed top-4 left-1/2 -translate-x-1/2 px-4 py-3 rounded-lg flex items-center text-white shadow-xl z-50 transition-opacity duration-300 ${
-        type === "success" ? "bg-green-600" : "bg-red-600"
-      }`}
-    >
-      {type === "success" ? <CheckCircle size={20} /> : <X size={20} />}
-      <span className="mx-2">{message}</span>
-      <button onClick={onClose} className="ml-2">
-        <X size={18} />
-      </button>
-    </div>
-  );
 };
 
 interface Props {
@@ -109,7 +72,7 @@ const Input = ({
     <input
       type={type}
       placeholder={placeholder}
-      className="w-full border border-gray-300 rounded-lg py-3 pl-12 pr-4 text-sm focus:border-green-500 focus:ring-green-500 transition-colors outline-none"
+      className="w-full border border-gray-300 rounded-lg py-3 pl-12 pr-4 text-sm focus:border-green-500 focus:ring-green-500 outline-none"
       value={value}
       onChange={(e) => set(e.target.value)}
       required
@@ -119,7 +82,6 @@ const Input = ({
 
 export default function RegisterForm({ onChangeMode, onClose }: Props) {
   const { register, loading } = useAuth();
-
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -146,60 +108,20 @@ export default function RegisterForm({ onChangeMode, onClose }: Props) {
     } else setError(res.message ?? "Lỗi đăng ký!");
   };
 
-  const BenzenStoreImage = () => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 100 100"
-      className="w-full h-full object-contain"
-    >
-      <rect x="5" y="55" width="90" height="40" fill="#E8F5E9" rx="5" />
-      <path d="M5 55 L95 55 L90 50 L10 50 Z" fill="#4CAF50" />
-      <rect x="25" y="45" width="50" height="10" fill="#FFFFFF" rx="3" />
-      <text
-        x="50"
-        y="52"
-        fontSize="6"
-        fontWeight="bold"
-        textAnchor="middle"
-        fill="#4CAF50"
-      >
-        BENZEN
-      </text>
-      <circle cx="28" cy="51.5" r="2.5" fill="#4CAF50" />
-      <rect
-        x="15"
-        y="60"
-        width="70"
-        height="30"
-        fill="#B2DFDB"
-        stroke="#80CBC4"
-        strokeWidth="1"
-        rx="3"
-      />
-      <rect x="20" y="70" width="10" height="15" fill="#C5E1A5" />
-      <rect x="70" y="70" width="10" height="15" fill="#C5E1A5" />
-      <circle cx="10" cy="85" r="5" fill="#81C784" />
-      <rect x="9" y="90" width="2" height="5" fill="#795548" />
-      <rect x="85" y="90" width="3" height="5" fill="#795548" />
-      <rect x="83" y="87" width="7" height="3" fill="#BDBDBD" />
-      <rect x="83" y="80" width="7" height="7" fill="#E0E0E0" rx="1" />
-      <circle cx="35" cy="40" r="3" fill="#FFC107" />
-      <circle cx="65" cy="40" r="3" fill="#FFC107" />
-    </svg>
-  );
-
   return (
     <div className="flex justify-center items-center min-h-screen p-4 font-sans">
-      <MessageBox
-        message={error || success}
-        type={error ? "error" : "success"}
-        onClose={() => {
-          setError(null);
-          setSuccess(null);
-        }}
-      />
+      {error && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 px-4 py-3 rounded-lg bg-red-600 text-white shadow-xl z-50">
+          {error} <button onClick={() => setError(null)}>X</button>
+        </div>
+      )}
+      {success && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 px-4 py-3 rounded-lg bg-green-600 text-white shadow-xl z-50">
+          {success} <button onClick={() => setSuccess(null)}>X</button>
+        </div>
+      )}
 
-      <div className="flex flex-col md:flex-row bg-white w-[700px] rounded-xl shadow-2xl   overflow-hidden relative">
+      <div className="flex flex-col md:flex-row bg-white w-[700px] rounded-xl shadow-2xl overflow-hidden relative">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 transition z-10 p-1"
@@ -207,12 +129,12 @@ export default function RegisterForm({ onChangeMode, onClose }: Props) {
           <X size={24} />
         </button>
 
-        <div className="hidden md:flex md:w-3/5 p-4 items-center justify-center bg-green-50">
-          <div className="w-full h-auto p-4">
-            <a href="/">
-              <img src="/images/cuahang.jpg" alt="/Cưa hàng của chúng tôi" />
-            </a>
-          </div>
+        <div className="hidden md:flex md:w-2/5 p-4 items-center justify-center bg-green-50">
+          <img
+            src="/images/cuahang.jpg"
+            alt="Cửa hàng"
+            className="w-full h-auto"
+          />
         </div>
 
         <div className="w-full md:w-3/5 p-6 md:p-8 flex flex-col justify-center">
@@ -278,13 +200,7 @@ export default function RegisterForm({ onChangeMode, onClose }: Props) {
               disabled={loading || !agree}
               className="w-full bg-green-600 text-white py-2.5 rounded-lg flex justify-center items-center font-bold text-base hover:bg-green-700 transition-colors shadow-lg shadow-green-200 disabled:opacity-50 mt-4"
             >
-              {loading ? (
-                "Đang xử lý..."
-              ) : (
-                <>
-                  <ChevronRight size={20} className="mr-2" /> Đăng ký
-                </>
-              )}
+              {loading ? "Đang xử lý..." : "Đăng ký"}
             </button>
           </form>
 

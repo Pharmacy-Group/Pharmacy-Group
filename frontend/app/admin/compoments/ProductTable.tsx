@@ -68,7 +68,7 @@ export default function ProductTable() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-full overflow-x-auto">
-      <h2 className="text-2xl font-bold mb-4">Danh sách sản phẩm </h2>
+      <h2 className="text-2xl font-bold mb-4 text-green-600">Danh sách sản phẩm </h2>
       
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-3">
         <div className="flex items-center gap-2 flex-1">
@@ -96,7 +96,7 @@ export default function ProductTable() {
           
 
           <select
-            className="border px-3 py-2 rounded bg-white border-gray-300 focus:ring-2 focus:ring-green-400 outline-none"
+            className="border px-3 py-2 rounded bg-white border-gray-300 focus:ring-2 focus:ring-green-400 outline-none cursor-pointer"
             onChange={(e) => setUnit(e.target.value)}
           >
             <option value="">Đơn vị</option>
@@ -109,7 +109,7 @@ export default function ProductTable() {
 
         <div className="flex items-center gap-2">
           <select
-            className="border px-2 py-1 rounded border-gray-300 focus:ring-2 focus:ring-green-400 outline-none bg-white"
+            className="border px-2 py-1 rounded border-gray-300 focus:ring-2 focus:ring-green-400 outline-none bg-white  cursor-pointer"
             value={limit}
             onChange={(e) => {
               setLimit(Number(e.target.value));
@@ -127,7 +127,7 @@ export default function ProductTable() {
               setEditing(null);
               setShowForm(true);
             }}
-            className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2"
+            className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 cursor-pointer"
           >
             <Plus size={18} /> Thêm sản phẩm
           </button>
@@ -192,7 +192,7 @@ export default function ProductTable() {
       {totalPages > 1 && (
         <div className="flex justify-center items-center mt-4 gap-2 flex-wrap">
           <button
-            className="px-2 py-1 bg-white border rounded disabled:opacity-50 border-gray-300"
+            className="px-2 py-1 bg-white border rounded disabled:opacity-50 border-gray-300 cursor-pointer"
             onClick={() => setPage(1)}
             disabled={page === 1}
           >
@@ -202,7 +202,7 @@ export default function ProductTable() {
 
           </button>
           <button
-            className="px-2 py-1 bg-white border rounded disabled:opacity-50 border-gray-300"
+            className="px-2 py-1 bg-white border rounded disabled:opacity-50 border-gray-300 cursor-pointer"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
           >
@@ -231,7 +231,7 @@ export default function ProductTable() {
 
 
           <button
-            className="px-2 py-1 bg-white border rounded disabled:opacity-50 border-gray-300"
+            className="px-2 py-1 bg-white border rounded disabled:opacity-50 border-gray-300 cursor-pointer"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
           >
@@ -241,7 +241,7 @@ export default function ProductTable() {
 
           </button>
           <button
-            className="px-2 py-1 bg-white border rounded disabled:opacity-50 border-gray-300"
+            className="px-2 py-1 bg-white border rounded disabled:opacity-50 border-gray-300 cursor-pointer"
             onClick={() => setPage(totalPages)}
             disabled={page === totalPages}
           >
@@ -309,7 +309,7 @@ export default function ProductTable() {
             <select
               name="unit"
               defaultValue={editing?.unit}
-              className="border p-2 w-full rounded"
+              className="border p-2 w-full rounded cursor-pointer"
             >
               <option value="Vỉ">Vỉ</option>
               <option value="Hộp">Hộp</option>
@@ -320,11 +320,11 @@ export default function ProductTable() {
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="px-4 py-2 border rounded"
+                className="px-4 py-2 border rounded  cursor-pointer"
               >
                 Hủy
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded">
+              <button className="px-4 py-2 bg-blue-600 text-white rounded cursor-pointer">
                 Lưu
               </button>
             </div>
@@ -342,7 +342,7 @@ export default function ProductTable() {
             <div className="flex justify-center gap-4">
               <button
                 onClick={() => setDeleting(null)}
-                className="px-4 py-2 border rounded"
+                className="px-4 py-2 border rounded cursor-pointer"
               >
                 Hủy
               </button>
@@ -351,7 +351,7 @@ export default function ProductTable() {
                   await deleteProduct(deleting._id);
                   setDeleting(null);
                 }}
-                className="px-4 py-2 bg-red-600 text-white rounded"
+                className="px-4 py-2 bg-red-600 text-white rounded cursor-pointer"
               >
                 Xóa
               </button>

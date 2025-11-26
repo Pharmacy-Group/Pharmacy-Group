@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Trash2, Minus, Plus, X } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Trash2, Minus, Plus, X, Check } from "lucide-react";
 import toast from "react-hot-toast";
 import useCartCount from "@/hooks/useCartCount";
 import useAddressData from "@/hooks/useAddressData";
 import { SlArrowLeft } from "react-icons/sl";
 
+// Sử dụng interface chính xác như trong Cart Model của Backend
 interface CartItem {
-  productId: string;
+  // Sử dụng _id vì MongoDB lưu trữ nó như vậy
+  _id: string; // Đã sửa từ productId thành _id
   name: string;
   price: number;
   image?: string;
@@ -18,9 +20,18 @@ interface CartItem {
 interface Cart {
   items: CartItem[];
 }
+interface Voucher {
+  code: string;
+  text: string;
+  value: number;
+  type: "discount" | "shipping";
+}
+
+const API_URL = "http://localhost:5000/api/carts";
 
 export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
+  // Thay đổi selectedItems để lưu _id sản phẩm
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
   const { setCartCount } = useCartCount();
@@ -29,6 +40,20 @@ export default function CartPage() {
   const [deletingProduct, setDeletingProduct] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [invoiceType, setInvoiceType] = useState("company");
+  const [showVoucherSelector, setShowVoucherSelector] = useState(false);
+  const [selectedVoucherCode, setSelectedVoucherCode] = useState<string | null>(
+    null
+  );
+
+  const vouchers: Voucher[] = [
+    { code: "GIAM10", text: "Giảm 10%", value: 10, type: "discount" },
+    {
+      code: "SHIPFREE",
+      text: "Miễn phí vận chuyển",
+      value: 30000,
+      type: "shipping",
+    },
+  ];
   const [deliveryMethod, setDeliveryMethod] = useState<"home" | "store">(
     "home"
   );
@@ -45,30 +70,36 @@ export default function CartPage() {
     handleWardChange,
   } = useAddressData();
 
-  useEffect(() => {
-    setMounted(true);
-    fetchCart();
-  }, []);
-
-  const fetchCart = async () => {
+  // Dùng useCallback cho fetchCart để tránh re-render không cần thiết
+  const fetchCart = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/carts");
+      const res = await fetch(API_URL, {
+        method: "GET",
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Không thể tải giỏ hàng");
       const data = await res.json();
       setCart(data);
       setCartCount(
         data.items.reduce((sum: number, i: CartItem) => sum + i.quantity, 0)
       );
-    } catch {
+    } catch (error) {
+      console.error(error);
       toast.error("Không thể tải giỏ hàng");
     }
-  };
+  }, [setCartCount]);
 
+  useEffect(() => {
+    setMounted(true);
+    fetchCart();
+  }, [fetchCart]); // Thêm fetchCart vào dependencies
+
+  // Đồng bộ local storage (không cần thiết nếu chỉ dùng state/server)
   useEffect(() => {
     if (cart) {
       const qty = cart.items.reduce((s, it) => s + it.quantity, 0);
       localStorage.setItem("cartCount", String(qty));
-      window.dispatchEvent(new Event("storage"));
+      // window.dispatchEvent(new Event("storage")); // Bỏ comment nếu hook useCartCount cần sự kiện này
     }
   }, [cart]);
 
@@ -77,7 +108,7 @@ export default function CartPage() {
     setSelectedItems(
       selectedItems.length === cart.items.length
         ? []
-        : cart.items.map((i) => i.productId)
+        : cart.items.map((i) => i._id)
     );
   };
 
@@ -89,12 +120,43 @@ export default function CartPage() {
     );
   };
 
-  const handleRemove = async (productId: string) => {
+  // Hàm API cập nhật số lượng
+  const handleUpdateQuantity = async (productId: string, newQty: number) => {
+    if (newQty < 1) return;
+
     try {
-      const res = await fetch("http://localhost:5000/api/carts/remove", {
+      const res = await fetch(`${API_URL}/update-quantity`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productId }),
+        credentials: "include", // Cần thiết nếu bạn dùng cookie cho xác thực
+        body: JSON.stringify({ productId, quantity: newQty }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Cập nhật thất bại");
+      }
+
+      // Cập nhật state bằng dữ liệu mới từ Server
+      setCart(data);
+      setCartCount(data.total);
+      toast.success(`Cập nhật số lượng thành công!`);
+
+    } catch (error: any) {
+      console.error("Lỗi cập nhật số lượng:", error);
+      toast.error(error.message || "Không thể cập nhật số lượng sản phẩm");
+      fetchCart(); // Đồng bộ lại trạng thái chính xác từ Server nếu lỗi
+    }
+  };
+
+  // Sửa: Dùng _id để xóa và gọi API
+  const handleRemove = async (productId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/remove`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ _id: productId }), // Backend nhận _id
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -103,29 +165,49 @@ export default function CartPage() {
         data.items.reduce((sum: number, i: CartItem) => sum + i.quantity, 0)
       );
       toast.success("Đã xóa sản phẩm khỏi giỏ hàng!");
+      setSelectedItems(prev => prev.filter(id => id !== productId)); // Bỏ chọn nếu bị xóa
     } catch {
       toast.error("Không thể xóa sản phẩm");
     }
   };
 
-  const updateQuantity = (productId: string, newQty: number) => {
+  // Sửa: Gọi hàm API khi thay đổi số lượng
+  const updateQuantity = (productId: string, delta: number) => {
+    const currentItem = cart?.items.find((i) => i._id === productId);
+
+    if (!currentItem) return;
+
+    const newQty = currentItem.quantity + delta;
+
+    if (newQty < 1) {
+      // Nếu giảm xuống 0 hoặc âm, mở modal xác nhận xóa
+      setDeletingProduct(productId);
+      setShowConfirm(true);
+      return;
+    }
+
+    // Optimistic update (tùy chọn) - thay đổi UI ngay lập tức
     setCart((prev) =>
       prev
         ? {
-            ...prev,
-            items: prev.items.map((item) =>
-              item.productId === productId
-                ? { ...item, quantity: Math.max(newQty, 1) }
-                : item
-            ),
-          }
+          ...prev,
+          items: prev.items.map((item) =>
+            item._id === productId
+              ? { ...item, quantity: newQty }
+              : item
+          ),
+        }
         : prev
     );
+
+    // Gửi API cập nhật số lượng lên Server
+    handleUpdateQuantity(productId, newQty);
   };
 
   const total =
     cart?.items
-      .filter((i) => selectedItems.includes(i.productId))
+      // Dùng _id để filter
+      .filter((i) => selectedItems.includes(i._id))
       .reduce((sum, i) => sum + i.price * i.quantity, 0) || 0;
 
   if (!mounted) return null;
@@ -133,7 +215,8 @@ export default function CartPage() {
   const inputStyle = "border rounded-lg px-3 py-2 w-full border-gray-400";
   const selectStyle = "border rounded-lg px-3 py-2 bg-gray-100 border-gray-400";
   const btnStyle = "rounded-lg px-4 py-2 transition cursor-pointer";
-  const iconBtn ="w-8 h-8 flex items-center justify-center border rounded-md hover:bg-gray-100 cursor-pointer";
+  const iconBtn =
+    "w-8 h-8 flex items-center justify-center border rounded-md hover:bg-gray-100 cursor-pointer";
 
   return (
     <div className="relative min-h-screen bg-gray-100 py-2 flex justify-center">
@@ -187,13 +270,13 @@ export default function CartPage() {
               <div>
                 {cart.items.map((item) => (
                   <div
-                    key={item.productId}
+                    key={item._id} // Dùng _id
                     className="p-5 flex items-center gap-4 border-t border-gray-100"
                   >
                     <input
                       type="checkbox"
-                      checked={selectedItems.includes(item.productId)}
-                      onChange={() => handleSelectOne(item.productId)}
+                      checked={selectedItems.includes(item._id)} // Dùng _id
+                      onChange={() => handleSelectOne(item._id)} // Dùng _id
                       className="accent-blue-600 w-4 h-4 cursor-pointer"
                     />
                     <img
@@ -215,7 +298,7 @@ export default function CartPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() =>
-                          updateQuantity(item.productId, item.quantity - 1)
+                          updateQuantity(item._id, -1)
                         }
                         className={iconBtn}
                       >
@@ -226,7 +309,7 @@ export default function CartPage() {
                       </span>
                       <button
                         onClick={() =>
-                          updateQuantity(item.productId, item.quantity + 1)
+                          updateQuantity(item._id, 1)
                         }
                         className={iconBtn}
                       >
@@ -236,7 +319,7 @@ export default function CartPage() {
 
                     <button
                       onClick={() => {
-                        setDeletingProduct(item.productId);
+                        setDeletingProduct(item._id);
                         setShowConfirm(true);
                       }}
                       className="text-red-500 hover:text-red-400 transition cursor-pointer"
@@ -258,21 +341,19 @@ export default function CartPage() {
                 <div className="flex bg-white rounded-lg">
                   <button
                     onClick={() => setDeliveryMethod("home")}
-                    className={`${btnStyle} ${
-                      deliveryMethod === "home"
+                    className={`${btnStyle} ${deliveryMethod === "home"
                         ? "bg-blue-600 text-white"
                         : "text-gray-600 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     Giao hàng tận nơi
                   </button>
                   <button
                     onClick={() => setDeliveryMethod("store")}
-                    className={`${btnStyle} ${
-                      deliveryMethod === "store"
+                    className={`${btnStyle} ${deliveryMethod === "store"
                         ? "bg-blue-600 text-white"
                         : "text-gray-600 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     Nhận tại nhà thuốc
                   </button>
@@ -408,14 +489,12 @@ export default function CartPage() {
                 </h2>
                 <button
                   onClick={() => setShowForm(!showForm)}
-                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer duration-300 ${
-                    showForm ? "bg-blue-500" : "bg-gray-300"
-                  }`}
+                  className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer duration-300 ${showForm ? "bg-blue-500" : "bg-gray-300"
+                    }`}
                 >
                   <div
-                    className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-300 ${
-                      showForm ? "translate-x-6" : ""
-                    }`}
+                    className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-300 ${showForm ? "translate-x-6" : ""
+                      }`}
                   ></div>
                 </button>
               </div>
@@ -437,16 +516,15 @@ export default function CartPage() {
                     </div>
 
                     <div className="p-6">
-                      <h3 className="text-text-secondary font-medium  ">
+                      <h3 className="text-text-secondary font-medium  ">
                         Xuất hoá đơn cho
                       </h3>
                       <div className="flex gap-3 mb-4">
                         <button
-                          className={`flex-1 flex flex-col items-center justify-center border rounded-xl py-3 transition ${
-                            invoiceType === "company"
+                          className={`flex-1 flex flex-col items-center justify-center border rounded-xl py-3 transition ${invoiceType === "company"
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200"
-                          }`}
+                            }`}
                           onClick={() => setInvoiceType("company")}
                         >
                           <img
@@ -458,11 +536,10 @@ export default function CartPage() {
                         </button>
 
                         <button
-                          className={`flex-1 flex flex-col items-center justify-center border rounded-xl py-3 transition ${
-                            invoiceType === "personal"
+                          className={`flex-1 flex flex-col items-center justify-center border rounded-xl py-3 transition ${invoiceType === "personal"
                               ? "border-blue-500 bg-blue-50"
                               : "border-gray-200"
-                          }`}
+                            }`}
                           onClick={() => setInvoiceType("personal")}
                         >
                           <img
@@ -558,6 +635,7 @@ export default function CartPage() {
             <span className="text-2xl font-bold text-blue-700">
               {total.toLocaleString()}đ
             </span>
+
           </div>
 
           <button
@@ -569,8 +647,9 @@ export default function CartPage() {
                 toast.success("Đơn hàng của bạn đã được ghi nhận!");
               }
             }}
+            disabled={selectedItems.length === 0} 
           >
-            {showCheckout ? "Hoàn tất" : "Mua hàng"}
+            {showCheckout ? "Hoàn tất" : selectedItems.length > 0 ? `Mua hàng (${selectedItems.length})` : "Vui lòng chọn sản phẩm"}
           </button>
 
           <p className="text-xs text-gray-500 mt-3 text-center">
@@ -585,6 +664,38 @@ export default function CartPage() {
           </p>
         </div>
       </div>
+
+      {showVoucherSelector && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-10 p-4">
+          <p className="font-semibold mb-2 text-gray-700">
+            Các Voucher khả dụng:
+          </p>
+          <div className="space-y-2">
+            {vouchers.map((v) => (
+              <div
+                key={v.code}
+                className={`p-3 border rounded-lg flex justify-between items-center cursor-pointer transition ${selectedVoucherCode === v.code
+                    ? "border-blue-500 bg-blue-50"
+                    : "hover:bg-gray-50"
+                  }`}
+                onClick={() => setSelectedVoucherCode(v.code)}
+              >
+                <div>
+                  <p className="font-semibold text-gray-800">{v.code}</p>
+                  <p className="text-sm text-gray-500">{v.text}</p>
+                </div>
+                <div className="text-blue-600">
+                  {selectedVoucherCode === v.code ? (
+                    <X className="w-5 h-5" />
+                  ) : (
+                    <Check className="w-5 h-5" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
@@ -607,10 +718,10 @@ export default function CartPage() {
               Bạn chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?
             </p>
 
-            <div className="flex justify-between gap-2 mt-6">
+            <div className="flex justify-between gap-4 mt-10">
               <button
                 onClick={() => setShowConfirm(false)}
-                className={`${btnStyle} bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-full`}
+                className={`${btnStyle} bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-full px-15`}
               >
                 Đóng
               </button>
@@ -619,7 +730,7 @@ export default function CartPage() {
                   if (deletingProduct) handleRemove(deletingProduct);
                   setShowConfirm(false);
                 }}
-                className={`${btnStyle} bg-blue-600 text-white hover:bg-blue-700 rounded-full`}
+                className={`${btnStyle} bg-blue-600 text-white hover:bg-blue-700 rounded-full px-15`}
               >
                 Xóa
               </button>

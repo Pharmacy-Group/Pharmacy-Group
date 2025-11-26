@@ -1,32 +1,27 @@
-'use client';
+"use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
-// Thay thế Next.js hooks bằng logic quản lý URL cơ bản
-// import { useRouter, useSearchParams } from 'next/navigation'; 
-import { Eye } from 'lucide-react';
-import CustomerDetailModal from './CustomerDetailModal'; // Component modal chi tiết
+import React, { useState, useEffect, useMemo } from "react";
+import { Eye } from "lucide-react";
+import CustomerDetailModal from "./CustomerDetailModal";
 
-// Định nghĩa kiểu dữ liệu cho khách hàng (dựa trên ảnh mẫu)
-interface Customer {
-  _id: string;
-  id: number;
-  name: string; // Tài khoản
-  status: string; // Trạng thái: 'Mới' | 'Đã đăng ký'
-  date: string; // Ngày đăng ký: 'Đăng ký: 06/2022'
-  city: string; // Địa chỉ (Tỉnh/Thành phố)
-  gender: 'Nam' | 'Nữ'; // Giới tính
-  point: number; // Tích điểm
-  phone: string; // SĐT
+// CẬP NHẬT: Interface User dựa trên userSchema
+interface User {
+  _id: string; // ID MongoDB
+  name: string;
+  email: string;
+  role: "user" | "admin";
+  // Sử dụng createdAt thay cho date
+  createdAt: string;
+  // Các trường sau bị loại bỏ vì không có trong userSchema của bạn: id, status, city, gender, point, phone
 }
 
-interface CustomerTableProps {
-  data: Customer[]; // Dữ liệu khách hàng
-  totalPages: number;
-  currentPage: number;
-  totalCount: number;
+interface UserTableProps {
+  // Cần truyền totalPages từ Backend/props để component Pagination hoạt động
+  totalPages?: number;
+  currentPage?: number;
+  totalCount?: number;
 }
 
-// Hàm trợ giúp để tạo danh sách số trang
 const getPageList = (total: number, current: number): (number | string)[] => {
   const range: (number | string)[] = [];
   const maxVisible = 4;
@@ -45,158 +40,198 @@ const getPageList = (total: number, current: number): (number | string)[] => {
   return range;
 };
 
-// Hook tùy chỉnh để mô phỏng useRouter/useSearchParams
-const useUrlState = () => {
-    // Chỉ chạy ở client side
-    const initialParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
-    
-    // Giả định trạng thái ban đầu của search và page
-    const [searchTerm, setSearchTerm] = useState(initialParams.get('search') || '');
-    const [page, setPage] = useState(parseInt(initialParams.get('page') || '1', 10));
-
-    // Hàm cập nhật URL
-    const push = (newParams: URLSearchParams) => {
-        const newUrl = `${window.location.pathname}?${newParams.toString()}`;
-        window.history.pushState({ path: newUrl }, '', newUrl);
-        
-        // Cập nhật state nội bộ sau khi push để trigger re-render nếu cần
-        setSearchTerm(newParams.get('search') || '');
-        setPage(parseInt(newParams.get('page') || '1', 10));
-    };
-
-    return { searchTerm, page, push };
-};
-
-
 export default function CustomerTable({
-  data,
-  totalPages,
-  currentPage: externalCurrentPage, // Sử dụng prop được truyền vào
-  totalCount,
-}: CustomerTableProps) {
+  totalPages: externalTotalPages = 1, // Đổi tên để tránh nhầm lẫn
+  currentPage: externalCurrentPage = 1,
+  totalCount: externalTotalCount = 0,
+}: UserTableProps) {
+  // Đổi tên state để phản ánh dữ liệu là User
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(
+    null
+  );
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState<number>(externalCurrentPage);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  // Sử dụng state riêng cho totalPages và totalCount nếu muốn Backend trả về dynamic
+  const [totalPages, setTotalPages] = useState<number>(externalTotalPages);
+  const [totalCount, setTotalCount] = useState<number>(externalTotalCount);
 
-  // Sử dụng hook mô phỏng
-  const { searchTerm: urlSearchTerm, page: urlPage, push } = useUrlState();
-
-  // Dùng state nội bộ để quản lý input tạm thời
-  const [localSearchTerm, setLocalSearchTerm] = useState(urlSearchTerm);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-
-  // Đồng bộ state input với URL param
+  // Fetch dữ liệu từ backend với cookie/session
   useEffect(() => {
-    setLocalSearchTerm(urlSearchTerm);
-  }, [urlSearchTerm]);
-
-
-  // Hàm xử lý tìm kiếm
-  const handleSearch = (term: string) => {
-    // Không cần dùng `push` ở đây, chỉ cần cập nhật local state
-    setLocalSearchTerm(term);
-  };
+    const fetchUsers = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        // ✅ SỬA LỖI: Thêm page, limit và searchTerm vào URL
+        const res = await fetch(
+          `http://localhost:5000/api/users?page=${page}&limit=10&search=${searchTerm}`,
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
   
-  // Hàm áp dụng tìm kiếm (khi nhấn Enter hoặc mất focus)
-  const applySearch = () => {
-    const params = new URLSearchParams(window.location.search);
-    
-    if (localSearchTerm) {
-      params.set('search', localSearchTerm);
-    } else {
-      params.delete('search');
-    }
-    
-    // Luôn reset về trang 1 khi tìm kiếm
-    params.set('page', '1'); 
-    push(params);
+        if (res.status === 401) {
+          setError("Chưa đăng nhập. Vui lòng đăng nhập để xem dữ liệu.");
+          setUsers([]);
+          return;
+        }
+  
+        if (!res.ok) {
+          // Xử lý lỗi từ Server (ví dụ: 500 Internal Server Error)
+          const errorData = await res.json();
+          throw new Error(errorData.message || "Lỗi khi fetch dữ liệu người dùng");
+        }
+  
+        const data = await res.json();
+        setUsers(data.items || []);
+        setTotalPages(data.totalPages || 1);
+        setTotalCount(data.totalCount || 0);
+  
+      } catch (err: any) {
+        // Bắt lỗi mạng hoặc lỗi custom từ Server
+        setError(err.message || "Lỗi khi fetch dữ liệu");
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    // Khi page hoặc searchTerm thay đổi, fetch lại dữ liệu
+    fetchUsers();
+  }, [page, searchTerm]);
+
+  const pageList = useMemo(
+    () => getPageList(totalPages, page),
+    [totalPages, page]
+  );
+
+  const handlePageChange = (newPage: number) => setPage(newPage);
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setPage(1); // Reset về trang 1 khi tìm kiếm
   };
-
-
-  // Hàm xử lý chuyển trang
-  const handlePageChange = (page: number) => {
-    const params = new URLSearchParams(window.location.search);
-    params.set('page', page.toString());
-    push(params);
-  };
-
-  // Tạo danh sách trang để hiển thị
-  const pageList = useMemo(() => getPageList(totalPages, externalCurrentPage), [totalPages, externalCurrentPage]);
 
   return (
     <div className="p-4 md:p-6 lg:p-8 w-full max-w-full">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Quản lý khách hàng</h2>
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">
+        Quản lý người dùng
+      </h2>
 
-      {/* Thông tin thống kê và Tìm kiếm */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
         <p className="text-lg font-medium text-gray-600 mb-3 md:mb-0">
-          Khách hàng: <strong className="text-green-600">{totalCount.toLocaleString()}</strong> người đã đăng ký
+          Tổng số người dùng:{" "}
+          <strong className="text-green-600">
+            {totalCount.toLocaleString()}
+          </strong>{" "}
+          người
         </p>
 
         <div className="relative w-full md:w-80">
           <input
             type="text"
-            placeholder="Tìm kiếm..."
+            placeholder="Tìm kiếm theo Tên..."
             className="border px-4 py-2 pl-10 rounded-full w-full focus:ring-green-500 focus:border-green-500 transition duration-150 border-gray-300"
-            value={localSearchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-            onBlur={applySearch}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                    applySearch();
-                }
-            }}
+            value={searchTerm}
+            onChange={handleSearch}
           />
-          <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <svg
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            ></path>
+          </svg>
         </div>
       </div>
 
-      {/* Bảng Hiển thị Dữ liệu */}
+      {loading && (
+        <div className="text-center text-green-600 mb-4">
+          Đang tải dữ liệu...
+        </div>
+      )}
+      {error && <div className="text-center text-red-600 mb-4">{error}</div>}
+
       <div className="overflow-x-auto w-full rounded-lg shadow-lg">
         <table className="min-w-full bg-white table-auto border-collapse">
           <thead className="bg-gray-100 border-b-2 border-gray-300">
             <tr>
-              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-10"><input type="checkbox" name="" id="" /></th>
-              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-24">ID</th>
-              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-60">Tài khoản</th>
-              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-40">Địa chỉ</th>
-              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-28">Giới tính</th>
-              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-28">Tích điểm</th>
-              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-40">SĐT</th>
-              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-16">Xem</th>
+              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-10">
+                <input type="checkbox" />
+              </th>
+              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-24">
+                ID MongoDB
+              </th>
+              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-60">
+                Tên/Email
+              </th>
+              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-40">
+                Vai trò
+              </th>
+              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-40">
+                Ngày tạo
+              </th>
+              <th className="p-3 text-center text-sm font-semibold text-gray-700 w-16">
+                Xem
+              </th>
             </tr>
           </thead>
           <tbody>
-            {data.length > 0 ? (
-                data.map((customer) => (
-                    <tr key={customer._id} className="border-b hover:bg-green-50/50 transition duration-100">
-                      <td className="p-3 text-sm text-gray-700 text-center">
-                          <input type="checkbox" className="form-checkbox h-4 w-4 text-green-600 rounded" />
-                      </td>
-                      <td className="p-3 text-sm font-mono text-gray-600">{customer.id}</td>
-                      <td className="p-3 text-sm text-gray-900 font-medium">
-                          <div className="font-bold text-base text-blue-700">{customer.name}</div>
-                          <div className={`text-xs mt-1 ${customer.status === 'Mới' ? 'text-red-500' : 'text-gray-500'}`}>
-                              {customer.status} | {customer.date}
-                          </div>
-                      </td>
-                      <td className="p-3 text-sm text-gray-700">{customer.city}</td>
-                      <td className="p-3 text-sm text-gray-700">{customer.gender}</td>
-                      <td className="p-3 text-sm font-semibold text-right text-orange-600">{customer.point.toLocaleString()}</td>
-                      <td className="p-3 text-sm text-gray-700 font-mono">{customer.phone}</td>
-                      <td className="p-3 text-center">
-                        <button 
-                            className="text-green-600 hover:text-green-800 transition"
-                            onClick={() => setSelectedCustomer(customer)}
-                        >
-                            <Eye size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                ))
-            ) : (
-                <tr className="border-b">
-                    <td colSpan={8} className="p-6 text-center text-lg text-gray-500">
-                        Không tìm thấy khách hàng nào.
-                    </td>
+            {users.length > 0 ? (
+              users.map((c) => (
+                <tr
+                  key={c._id}
+                  className="border-b hover:bg-green-50/50 transition duration-100"
+                >
+                  <td className="p-3 text-center">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox h-4 w-4 text-green-600 rounded"
+                    />
+                  </td>
+                  <td className="p-3 text-center text-xs font-mono text-gray-500">
+                    {c._id}
+                  </td>
+                  <td className="p-3">
+                    <div className="font-bold text-blue-700">{c.name}</div>
+                    <div className="text-xs mt-1 text-gray-500">
+                      {c.email}
+                    </div>
+                  </td>
+                  <td className="p-3 text-center font-semibold">
+                    <span className={`px-3 py-1 text-xs rounded-full ${c.role === "admin" ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"}`}>
+                      {c.role === "admin" ? "Quản trị" : "Khách hàng"}
+                    </span>
+                  </td>
+                  <td className="p-3 text-center text-sm text-gray-500">
+                    {new Date(c.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={() => setSelectedUser(c)} // Đổi thành setSelectedUser
+                      className="text-green-600 hover:text-green-800"
+                    >
+                      <Eye size={18} />
+                    </button>
+                  </td>
                 </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={6} // Cập nhật colspan
+                  className="p-6 text-center text-lg text-gray-500"
+                >
+                  Không tìm thấy người dùng nào.
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -204,61 +239,51 @@ export default function CustomerTable({
 
       {totalPages > 1 && (
         <div className="flex justify-center items-center mt-6 gap-2 flex-wrap">
-          <button
-            className="px-3 py-1 bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-50 transition"
-            onClick={() => handlePageChange(1)}
-            disabled={externalCurrentPage === 1}
-          >
+          <button onClick={() => handlePageChange(1)} disabled={page === 1}>
             &laquo;
           </button>
           <button
-            className="px-3 py-1 bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-50 transition"
-            onClick={() => handlePageChange(Math.max(1, externalCurrentPage - 1))}
-            disabled={externalCurrentPage === 1}
+            onClick={() => handlePageChange(Math.max(1, page - 1))}
+            disabled={page === 1}
           >
             &lsaquo;
           </button>
-
-          {pageList.map((item, idx) =>
-            item === "..." ? (
-              <span key={`dot-${idx}`} className="px-2 text-gray-500">...</span>
+          {pageList.map((p, idx) =>
+            p === "..." ? (
+              <span key={idx}>...</span>
             ) : (
               <button
-                key={`page-${item}-${idx}`}
-                onClick={() => handlePageChange(item as number)}
-                className={`px-4 py-2 rounded-lg border text-sm font-medium transition duration-150 ${
-                  externalCurrentPage === item
-                    ? "bg-green-600 text-white border-green-600 shadow-md"
-                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-100"
-                }`}
+                key={idx}
+                onClick={() => handlePageChange(p as number)}
+                className={
+                  p === page
+                    ? "bg-green-600 text-white px-2 py-1 rounded"
+                    : "px-2 py-1"
+                }
               >
-                {item}
+                {p}
               </button>
             )
           )}
-
           <button
-            className="px-3 py-1 bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-50 transition"
-            onClick={() => handlePageChange(Math.min(totalPages, externalCurrentPage + 1))}
-            disabled={externalCurrentPage === totalPages}
+            onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
+            disabled={page === totalPages}
           >
             &rsaquo;
           </button>
           <button
-            className="px-3 py-1 bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-50 transition"
             onClick={() => handlePageChange(totalPages)}
-            disabled={externalCurrentPage === totalPages}
+            disabled={page === totalPages}
           >
             &raquo;
           </button>
         </div>
       )}
-      
-      {/* Modal hiển thị chi tiết khách hàng */}
-      {selectedCustomer && (
-        <CustomerDetailModal 
-            customer={selectedCustomer} 
-            onClose={() => setSelectedCustomer(null)} 
+
+      {selectedUser && ( // Đổi thành selectedUser
+        <CustomerDetailModal
+          customer={selectedUser} // Cần cập nhật CustomerDetailModal để chấp nhận User type
+          onClose={() => setSelectedUser(null)}
         />
       )}
     </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface Product {
   _id: string;
@@ -20,6 +21,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -40,28 +42,40 @@ export default function ProductDetailPage() {
     fetchProduct();
   }, [id]);
 
-  const addToCart = () => {
+  // Thêm giỏ hàng qua backend đúng chuẩn
+  const addToCart = async () => {
     if (!product) return;
+    setAdding(true);
 
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-
-    const existing = cart.find((item: any) => item.id === product.id);
-
-    if (existing) {
-      existing.quantity += quantity;
-    } else {
-      cart.push({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        image: product.image,
-        unit: product.unit,
-        quantity,
+    try {
+      const res = await fetch("http://localhost:5000/api/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include", // gửi cookie session
+        body: JSON.stringify({
+          _id: product._id,
+          name: product.name,
+          price: product.price,
+          image: product.image,
+          quantity,
+        }),
       });
-    }
 
-    localStorage.setItem("cart", JSON.stringify(cart));
-    alert("Đã thêm vào giỏ hàng!");
+      if (res.status === 401) {
+        toast.error("Bạn cần đăng nhập để thêm giỏ hàng");
+        setAdding(false);
+        return;
+      }
+
+      if (!res.ok) throw new Error("Không thể thêm sản phẩm vào giỏ");
+
+      toast.success("Đã thêm vào giỏ hàng!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Có lỗi xảy ra. Vui lòng thử lại.");
+    } finally {
+      setAdding(false);
+    }
   };
 
   if (loading) return <div className="text-center py-10">Đang tải sản phẩm...</div>;
@@ -70,7 +84,6 @@ export default function ProductDetailPage() {
   return (
     <div className="container mx-auto px-6 py-10">
       <div className="grid md:grid-cols-2 gap-10">
-        
         <div className="flex justify-center">
           <img
             src={product.image}
@@ -81,7 +94,7 @@ export default function ProductDetailPage() {
 
         <div>
           <h1 className="text-3xl font-bold mb-3">{product.name}</h1>
-          
+
           <p className="text-blue-600 text-2xl font-bold mb-2">
             {product.price.toLocaleString()}₫
             <span className="text-gray-600 text-sm ml-1">/ {product.unit}</span>
@@ -107,9 +120,12 @@ export default function ProductDetailPage() {
 
           <button
             onClick={addToCart}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-blue-700"
+            disabled={adding}
+            className={`bg-blue-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-blue-700 ${
+              adding ? "opacity-70 cursor-not-allowed" : ""
+            }`}
           >
-            <ShoppingCart size={20} /> Thêm vào giỏ
+            <ShoppingCart size={20} /> {adding ? "Đang thêm..." : "Thêm vào giỏ"}
           </button>
         </div>
       </div>
