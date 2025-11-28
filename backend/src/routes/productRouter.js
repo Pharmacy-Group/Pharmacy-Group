@@ -3,6 +3,7 @@ const router = express.Router();
 const Product = require("../models/Product");
 const upload = require("../middleware/upload");
 
+// 🟢 Lấy tất cả sản phẩm
 router.get("/", async (req, res) => {
   try {
     const products = await Product.find();
@@ -12,6 +13,28 @@ router.get("/", async (req, res) => {
   }
 });
 
+// 🟢 Lấy 1 sản phẩm theo id (hỗ trợ cả /:id và /id/:id)
+router.get("/:id", async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.get("/id/:id", async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 🟢 Thêm sản phẩm
 router.post("/", upload.single("image"), async (req, res) => {
   try {
     const product = new Product({
@@ -30,6 +53,7 @@ router.post("/", upload.single("image"), async (req, res) => {
   }
 });
 
+// 🟢 Cập nhật sản phẩm
 router.put("/:id", upload.single("image"), async (req, res) => {
   try {
     const updates = {
@@ -49,11 +73,32 @@ router.put("/:id", upload.single("image"), async (req, res) => {
   }
 });
 
+// 🟢 Xóa sản phẩm
 router.delete("/:id", async (req, res) => {
   try {
     const deleted = await Product.findByIdAndDelete(req.params.id);
     if (!deleted) return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
     res.json({ message: "Đã xóa thành công" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Thêm bình luận cho sản phẩm
+router.post('/:id/comments', async (req, res) => {
+  try {
+    const { name, phone, text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: 'Nội dung bình luận không được để trống' });
+
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: 'Không tìm thấy sản phẩm' });
+
+    const comment = { name: name || 'Khách', phone: phone || '', text: text.trim(), createdAt: new Date() };
+    product.comments = product.comments || [];
+    product.comments.push(comment);
+    await product.save();
+
+    res.status(201).json({ success: true, comment });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
