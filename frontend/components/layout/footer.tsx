@@ -163,40 +163,57 @@ export default function Footer() {
 
           <div>
             <h4 className="font-semibold mb-3">KẾT NỐI VỚI BENZEN</h4>
-            <div className="flex items-center gap-3 mb-3">
-              {["facebook", "google", "twitter", "instagram"].map(
-                (platform) => (
-                  <a
-                    key={platform}
-                    href="#"
-                    aria-label={platform}
-                    className="text-gray-600 hover:text-gray-900"
-                  >
-                    <i className={`bi bi-${platform} text-xl`} />
-                  </a>
-                )
-              )}
+            
+            {/* Social Media Links */}
+            <div className="mb-6">
+              <p className="text-sm font-semibold mb-3 text-gray-700">Theo dõi chúng tôi</p>
+              <div className="space-y-2">
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm hover:opacity-80 transition">
+                  <Image src="/images/facebook.webp" alt="Facebook" width={24} height={24} style={{ objectFit: "contain" }} />
+                  <span>Facebook</span>
+                </a>
+                <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm hover:opacity-80 transition">
+                  <Image src="/images/youtube.webp" alt="Youtube" width={24} height={24} style={{ objectFit: "contain" }} />
+                  <span>Youtube</span>
+                </a>
+                <a href="https://zalo.me" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm hover:opacity-80 transition">
+                  <Image src="/images/zalo.webp" alt="Zalo" width={24} height={24} style={{ objectFit: "contain" }} />
+                  <span>Zalo</span>
+                </a>
+              </div>
             </div>
 
-            <p className="text-sm">
+            {/* Payment Methods */}
+            <div>
+              <p className="text-sm font-semibold mb-3 text-gray-700">Hỗ trợ thanh toán</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-white p-1 rounded flex items-center justify-center h-10 border border-gray-200">
+                  <Image src="/images/vnpay.webp" alt="VNPAY" width={40} height={24} style={{ objectFit: "contain" }} />
+                </div>
+                <div className="bg-white p-1 rounded flex items-center justify-center h-10 border border-gray-200">
+                  <Image src="/images/visa.webp" alt="VISA" width={40} height={24} style={{ objectFit: "contain" }} />
+                </div>
+                <div className="bg-white p-1 rounded flex items-center justify-center h-10 border border-gray-200">
+                  <Image src="/images/mastercard.webp" alt="Mastercard" width={40} height={24} style={{ objectFit: "contain" }} />
+                </div>
+                <div className="bg-white p-1 rounded flex items-center justify-center h-10 border border-gray-200">
+                  <Image src="/images/JCB.webp" alt="JCB" width={40} height={24} style={{ objectFit: "contain" }} />
+                </div>
+                <div className="bg-white p-1 rounded flex items-center justify-center h-10 border border-gray-200">
+                  <Image src="/images/momo.webp" alt="Momo" width={40} height={24} style={{ objectFit: "contain" }} />
+                </div>
+                <div className="bg-white p-1 rounded flex items-center justify-center h-10 border border-gray-200">
+                  <Image src="/images/ZALOPAY.webp" alt="Zalopay" width={40} height={24} style={{ objectFit: "contain" }} />
+                </div>
+              </div>
+            </div>
+
+            <p className="text-sm mt-4">
               Hotline:{" "}
               <a href="tel:180029YY" className="font-medium">
                 1800 29YY
               </a>
             </p>
-
-            <div className="flex items-center gap-3 mt-4">
-              {["/images/logo.jpg"].map((src) => (
-                <div key={src} className="w-20 h-8 relative">
-                  <Image
-                    src={src}
-                    alt={src}
-                    fill
-                    style={{ objectFit: "contain" }}
-                  />
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
